@@ -219,7 +219,9 @@
   .kanban-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
   .kanban{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;}
   .kcol{
-    flex:0 0 268px;
+    flex:1 1 260px;
+    min-width:260px;
+    max-width:420px;
     background:var(--surface-2);
     border-radius:var(--radius);
     border:1px solid var(--line);
@@ -867,7 +869,7 @@ async function initSupabase(){
   async function fetchAll(){
     try{
       const [{data: rows, error: pErr}, {data: cfgRows, error: cErr}] = await Promise.all([
-        sb.from('products').select('*'),
+        sb.from('products').select('*').range(0, 9999), // sem isso, o Supabase corta em 1000 linhas por padrão
         sb.from('config').select('*'),
       ]);
       if(pErr) throw pErr;
