@@ -735,7 +735,10 @@ async function saveProduct(id, patch){
     try{
       const {error} = await sb.from('products').upsert(productToRow(merged));
       if(error) throw error;
-    }catch(e){ toast('Erro ao salvar: '+(e&&e.message||e)); }
+    }catch(e){
+      toast('Erro ao salvar: '+((e&&e.message)||e));
+      return null; // não finge sucesso local se a gravação no banco falhou
+    }
   }
   const idx = state.products.findIndex(p=>p.id===id);
   if(idx>=0) state.products[idx]=merged; else state.products.push(merged);
@@ -743,7 +746,8 @@ async function saveProduct(id, patch){
   return merged;
 }
 
-async function createProduct(data){
+async function createProduct(data, opts){
+  opts = opts || {};
   const id = uid();
   const base = Object.assign({
     id, linha:'Ecotap', modelo:'', cor:'', sku:'', ean:'', previsaoChegada:'', vendedor:'',
@@ -755,12 +759,16 @@ async function createProduct(data){
     try{
       const {error} = await sb.from('products').insert(productToRow(doc));
       if(error) throw error;
-    }catch(e){ toast('Erro ao criar produto: '+(e&&e.message||e)); }
+    }catch(e){
+      const msg = (e&&e.message) || String(e);
+      if(!opts.silent) toast('Erro ao criar produto: '+msg);
+      return opts.silent ? {id:null, error: msg} : null; // não finge sucesso local se a gravação no banco falhou
+    }
   }
   state.products.push(doc);
   if(!state.useDb) notifyNewProduct(doc); // no modo conectado, o próprio ciclo de atualização detecta e avisa
   renderAll();
-  return id;
+  return opts.silent ? {id, error:null} : id;
 }
 
 async function deleteProduct(id){
@@ -768,10 +776,14 @@ async function deleteProduct(id){
     try{
       const {error} = await sb.from('products').delete().eq('id', id);
       if(error) throw error;
-    }catch(e){ toast('Erro ao remover: '+(e&&e.message||e)); }
+    }catch(e){
+      toast('Erro ao remover: '+((e&&e.message)||e));
+      return false; // não finge sucesso local se a exclusão no banco falhou
+    }
   }
   state.products = state.products.filter(p=>p.id!==id);
   renderAll();
+  return true;
 }
 
 async function saveCanais(list){
@@ -1570,8 +1582,9 @@ async function runImport(){
   const skusExistentes = new Set(state.products.map(p=>(p.sku||'').trim().toLowerCase()).filter(Boolean));
   const eansExistentes = new Set(state.products.map(p=>(p.ean||'').trim().toLowerCase()).filter(Boolean));
 
-  let created = 0, skipped = 0, duplicados = 0;
+  let created = 0, skipped = 0, duplicados = 0, falhas = 0;
   const duplicadosExemplos = [];
+  let primeiroErro = '';
   for(const line of dataLines){
     const cols = splitLine(line).map(c=>c.trim());
     // aceita: [linha, modelo, cor, sku, ean] OU [modelo, cor, sku, ean] se só 4 colunas
@@ -1599,18 +1612,30 @@ async function runImport(){
       continue;
     }
 
-    await createProduct({
+    const res = await createProduct({
       linha, modelo, cor: cor||'', sku: sku||'', ean: ean||'',
       cadastroDone: !!sku, etapa2Done:false, fotosDone:false, liberado:false
-    });
-    created++;
-    if(skuNorm) skusExistentes.add(skuNorm);
-    if(eanNorm) eansExistentes.add(eanNorm);
+    }, {silent:true});
+    if(res.id){
+      created++;
+      if(skuNorm) skusExistentes.add(skuNorm);
+      if(eanNorm) eansExistentes.add(eanNorm);
+    }else{
+      falhas++;
+      if(!primeiroErro) primeiroErro = res.error;
+      if(falhas>=10 && created===0 && duplicados===0){
+        // as primeiras 10 falharam todas, sem nenhum sucesso — provavelmente é um erro estrutural
+        // (ex: coluna faltando no banco), não vale continuar tentando o resto da lista.
+        break;
+      }
+    }
   }
   let msg = `${created} produto(s) importado(s)`;
   if(duplicados) msg += `, ${duplicados} ignorado(s) por já existir SKU/EAN igual (ex: ${duplicadosExemplos.join(', ')})`;
   if(skipped) msg += `, ${skipped} linha(s) ignorada(s) por formato`;
+  if(falhas) msg += `, ${falhas} falharam ao gravar no banco — erro: "${primeiroErro}"`;
   resultEl.textContent = msg + '.';
+  resultEl.style.color = falhas ? 'var(--red)' : '';
   document.getElementById('import-text').value='';
   toast(`Importação concluída: ${created} produto(s).`);
 }
@@ -1759,9 +1784,10 @@ function renderModal(){
   document.getElementById('modal-close').addEventListener('click', closeModal);
   document.getElementById('modal-cancel').addEventListener('click', closeModal);
 
-  document.getElementById('modal-delete').addEventListener('click', ()=>{
+  document.getElementById('modal-delete').addEventListener('click', async ()=>{
     if(confirm('Excluir este produto? Essa ação não pode ser desfeita.')){
-      deleteProduct(p.id); closeModal();
+      const ok = await deleteProduct(p.id);
+      if(ok) closeModal();
     }
   });
 
@@ -1780,8 +1806,8 @@ function renderModal(){
   document.getElementById('modal-save').addEventListener('click', async ()=>{
     const f = readForm();
     const warn = findDuplicateWarning(f, p.id);
-    await saveProduct(p.id, f);
-    toast(warn || 'Produto salvo.');
+    const ok = await saveProduct(p.id, f);
+    if(ok) toast(warn || 'Produto salvo.');
     renderModal();
   });
   document.getElementById('f-linha').addEventListener('change', async ()=>{
@@ -1793,8 +1819,8 @@ function renderModal(){
     const f = readForm();
     if(!p.cadastroDone && !f.sku){ toast('Informe o SKU antes de concluir o cadastro.'); return; }
     const warn = !p.cadastroDone ? findDuplicateWarning(f, p.id) : null;
-    await saveProduct(p.id, Object.assign({}, f, {cadastroDone: !p.cadastroDone}));
-    if(warn) toast(warn);
+    const ok = await saveProduct(p.id, Object.assign({}, f, {cadastroDone: !p.cadastroDone}));
+    if(ok && warn) toast(warn);
     renderModal();
   });
   document.getElementById('toggle-etapa2').addEventListener('click', async ()=>{
@@ -1803,8 +1829,8 @@ function renderModal(){
     renderModal();
   });
   document.getElementById('toggle-fotos').addEventListener('click', async ()=>{
-    await saveProduct(p.id, {fotosDone: !p.fotosDone});
-    if(!p.fotosDone) toast('Produto disponível para o Comercial anunciar.');
+    const ok = await saveProduct(p.id, {fotosDone: !p.fotosDone});
+    if(ok && !p.fotosDone) toast('Produto disponível para o Comercial anunciar.');
     renderModal();
   });
 }
