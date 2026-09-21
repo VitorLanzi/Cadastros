@@ -369,6 +369,7 @@
       </div>
     </header>
 
+    <section class="view" id="view-instrucoes" hidden></section>
     <section class="view" id="view-kanban"></section>
     <section class="view" id="view-produtos" hidden></section>
     <section class="view" id="view-notificacoes" hidden></section>
@@ -441,7 +442,8 @@ const CHANNEL_FAMILY_WEIGHTS = [
   {match:'Magalu', pct:0.6},
   {match:'Site', pct:0.3},
 ];
-const LINHAS = ['Ecotap','Vélon','Bravur','Outra'];
+const LINHAS = ['Ecotap','Vélon','Bravur','Traseira Bravur','Porta Malas Bravur','Evox','Outra'];
+const LINHAS_PROPRIA = ['Bravur','Traseira Bravur','Porta Malas Bravur','Evox'];
 const CHAN_CYCLE = ['', 'anunciar', 'em_andamento', 'anunciado'];
 const CHAN_LABEL = {'':'—','anunciar':'Anunciar','em_andamento':'Em andamento','anunciado':'Anunciado'};
 const DEFAULT_PRAZOS = {cadastro:1, etapa2:2, fotos:2};
@@ -451,9 +453,10 @@ function nowIso(){ return new Date().toISOString(); }
 function uid(){ return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
 function getOrigem(p){
-  // O fluxo é determinado inteiramente pela Linha do produto — Bravur é fabricação própria,
-  // as demais linhas são compradas de fornecedor. Não é um campo independente por produto.
-  return p.linha==='Bravur' ? 'propria' : 'fornecedor';
+  // O fluxo é determinado inteiramente pela Linha do produto — Bravur e suas variações
+  // (Traseira Bravur, Porta Malas Bravur, Evox) são fabricação própria; as demais linhas
+  // são compradas de fornecedor. Não é um campo independente por produto.
+  return LINHAS_PROPRIA.includes(p.linha) ? 'propria' : 'fornecedor';
 }
 function getStage(p){
   if(!p.cadastroDone || !p.sku) return 'cadastro';
@@ -508,6 +511,8 @@ const state = {
   theme: 'light',
   selectedProdutos: new Set(),
   filterDuplicadosProdutos: false,
+  meuVendedor: '',
+  filterVendedorAnuncios: '',
 };
 
 /* ============================= PRAZOS / NOTIFICAÇÕES (helpers) ============================= */
@@ -607,6 +612,7 @@ function initTopbarControls(){
   state.theme = prefsGet('theme', state.theme);
   state.meuSetor = prefsGet('setor', state.meuSetor);
   state.filterSetorNotif = state.meuSetor;
+  state.meuVendedor = prefsGet('vendedor', state.meuVendedor);
 
   document.documentElement.setAttribute('data-theme', state.theme);
   const themeBtn = document.getElementById('theme-toggle-btn');
@@ -639,6 +645,7 @@ function initTopbarControls(){
 
 /* ============================= NAV ============================= */
 const NAV_ITEMS = [
+  {key:'instrucoes', label:'Instruções', icon:'📘', title:'Instruções', sub:'Como o fluxo funciona e como usar cada aba do painel.'},
   {key:'kanban', label:'Kanban', icon:'▤', title:'Kanban de produção', sub:'Acompanhe cada produto pela esteira, do cadastro até a liberação para anúncio.'},
   {key:'produtos', label:'Produtos', icon:'▦', title:'Cadastro de produtos', sub:'Registre a compra e preencha SKU, EAN e fotos — cada campo pertence a um responsável.'},
   {key:'notificacoes', label:'Notificações', icon:'🔔', title:'Notificações e prazos', sub:'O que cada setor precisa fazer agora e até quando — atualiza ao vivo para quem estiver com o painel aberto.'},
@@ -673,7 +680,8 @@ function switchView(v){
 }
 
 function renderCurrentView(){
-  if(state.view==='kanban') renderKanban();
+  if(state.view==='instrucoes') renderInstrucoes();
+  else if(state.view==='kanban') renderKanban();
   else if(state.view==='produtos') renderProdutos();
   else if(state.view==='notificacoes') renderNotificacoes();
   else if(state.view==='anuncios') renderAnuncios();
@@ -701,7 +709,7 @@ function rowToProduct(r){
     id: r.id, linha: r.linha, modelo: r.modelo, cor: r.cor, sku: r.sku, ean: r.ean,
     cadastroDone: !!r.cadastro_done, etapa2Done: !!r.etapa2_done, fotosDone: !!r.fotos_done,
     liberado: !!r.liberado, liberadoPor: r.liberado_por||'', liberadoEm: r.liberado_em||'',
-    previsaoChegada: r.previsao_chegada||'', canais: r.canais||{},
+    previsaoChegada: r.previsao_chegada||'', canais: r.canais||{}, vendedor: r.vendedor||'',
     stageEnteredKey: r.stage_entered_key||'', stageEnteredAt: r.stage_entered_at||'', stageDeadline: r.stage_deadline||'',
     criadoEm: r.criado_em||'', atualizadoEm: r.atualizado_em||''
   };
@@ -711,7 +719,7 @@ function productToRow(p){
     id: p.id, linha: p.linha||'Ecotap', modelo: p.modelo||'', cor: p.cor||'', sku: p.sku||'', ean: p.ean||'',
     cadastro_done: !!p.cadastroDone, etapa2_done: !!p.etapa2Done, fotos_done: !!p.fotosDone,
     liberado: !!p.liberado, liberado_por: p.liberadoPor||'', liberado_em: p.liberadoEm||'',
-    previsao_chegada: p.previsaoChegada||'', canais: p.canais||{},
+    previsao_chegada: p.previsaoChegada||'', canais: p.canais||{}, vendedor: p.vendedor||'',
     stage_entered_key: p.stageEnteredKey||'', stage_entered_at: p.stageEnteredAt||'', stage_deadline: p.stageDeadline||'',
     criado_em: p.criadoEm||'', atualizado_em: p.atualizadoEm||''
   };
@@ -736,7 +744,7 @@ async function saveProduct(id, patch){
 async function createProduct(data){
   const id = uid();
   const base = Object.assign({
-    id, linha:'Ecotap', modelo:'', cor:'', sku:'', ean:'', previsaoChegada:'',
+    id, linha:'Ecotap', modelo:'', cor:'', sku:'', ean:'', previsaoChegada:'', vendedor:'',
     cadastroDone:false, etapa2Done:false, fotosDone:false, liberado:false,
     liberadoPor:'', liberadoEm:'', canais:{}, criadoEm: nowIso(), atualizadoEm: nowIso()
   }, data);
@@ -904,6 +912,70 @@ async function initSupabase(){
   await fetchAll();
   if(pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(fetchAll, 12000); // atualiza a cada 12s para refletir o que outras pessoas mudaram
+}
+
+/* ============================= INSTRUÇÕES ============================= */
+function renderInstrucoes(){
+  const el = document.getElementById('view-instrucoes');
+  el.innerHTML = `
+    <div style="max-width:760px;">
+
+      <div class="gate-note" style="font-size:13px;">
+        Esta aba explica como o painel funciona — é a versão em app da antiga aba "Instruções" da planilha.
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">O fluxo, do início ao anúncio</h3>
+      <p style="font-size:13px;line-height:1.6;color:var(--ink);">
+        Todo produto passa pelas mesmas 4 etapas, mas quem faz a 2ª etapa muda conforme a linha:
+      </p>
+      <div class="table-wrap" style="margin-bottom:16px;">
+        <table>
+          <thead><tr><th>Etapa</th><th>Responsável</th><th>O que é feito</th></tr></thead>
+          <tbody>
+            <tr><td><strong>1. Cadastro</strong></td><td>Vitor</td><td>Compra (quando for o caso), cadastro completo do produto, SKU e EAN.</td></tr>
+            <tr><td><strong>2a. Produção</strong> <span style="color:var(--muted);">(linhas próprias)</span></td><td>Vitória</td><td>Inclui na ordem de produção e acompanha a fabricação da amostra.</td></tr>
+            <tr><td><strong>2b. Recebimento</strong> <span style="color:var(--muted);">(linhas de fornecedor)</span></td><td>Jéssica / Hugo</td><td>Confere o recebimento e sinaliza que é produto novo.</td></tr>
+            <tr><td><strong>3. Marketing</strong></td><td>Marketing</td><td>Fotografa, produz banners e vídeos, organiza os materiais do anúncio.</td></tr>
+            <tr><td><strong>4. Comercial</strong></td><td>Comercial</td><td>Cadastra e publica os anúncios em cada marketplace, confere dados e preço.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">Quais linhas usam qual fluxo</h3>
+      <p style="font-size:13px;line-height:1.6;">
+        <strong>Fabricação própria</strong> (etapa 2 = Vitória): ${LINHAS_PROPRIA.join(', ')}.<br>
+        <strong>Fornecedor / comprado</strong> (etapa 2 = Jéssica/Hugo): as demais linhas (Ecotap, Vélon, Outra).<br>
+        Isso é automático — basta escolher a Linha certa na ficha do produto que o app já sabe qual fluxo seguir.
+      </p>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">O que cada aba faz</h3>
+      <div class="table-wrap" style="margin-bottom:16px;">
+        <table>
+          <thead><tr><th>Aba</th><th>Para que serve</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Kanban</strong></td><td>Visão geral de todos os produtos, organizados por etapa atual. Clique num card para abrir a ficha.</td></tr>
+            <tr><td><strong>Produtos</strong></td><td>Lista completa com busca, filtros e cadastro de produto novo. Aqui também dá pra selecionar vários produtos e aplicar uma ação em massa.</td></tr>
+            <tr><td><strong>Notificações</strong></td><td>O que está pendente e até quando, por setor. Filtra pelo seu setor no topo pra ver só o que é seu.</td></tr>
+            <tr><td><strong>Anúncios</strong></td><td>Só produtos já liberados pro Comercial. Marca o status de cada canal, atribui a si mesmo os anúncios que está tocando, e vê o risco de venda perdida por canal.</td></tr>
+            <tr><td><strong>Importar</strong></td><td>Cola linhas de uma planilha (linha, modelo, cor, sku, ean) pra criar vários produtos de uma vez. Já verifica duplicados de SKU/EAN antes de importar.</td></tr>
+            <tr><td><strong>Ajustes</strong></td><td>Lista de canais de venda usados nos anúncios e prazo (em dias) de cada etapa.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">Como marcar quais anúncios são seus (vendedores)</h3>
+      <p style="font-size:13px;line-height:1.6;">
+        Na aba <strong>Anúncios</strong>, preencha seu nome uma vez no campo "Seu nome (vendedor)" — fica salvo neste navegador, não precisa repetir. Depois, em qualquer produto que você estiver anunciando, clique em <strong>"Atribuir a mim"</strong>. A partir daí, o botão <strong>"★ Meus anúncios"</strong> filtra a lista só pros produtos que você atribuiu a si mesmo — e o filtro "Todos os vendedores" no topo deixa ver o que está atribuído a qualquer pessoa da equipe.
+      </p>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">As cores dos canais em Anúncios</h3>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:12.5px;margin-bottom:20px;">
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" style="padding:1px 7px;">•</span> Não iniciado</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="anunciar" style="padding:1px 7px;">•</span> Anunciar (na fila)</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="em_andamento" style="padding:1px 7px;">•</span> Em andamento</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="anunciado" style="padding:1px 7px;">•</span> Anunciado (publicado)</span>
+      </div>
+    </div>`;
 }
 
 /* ============================= KANBAN ============================= */
@@ -1280,7 +1352,14 @@ function renderAnuncios(){
   if(state.filterRiscoAnuncios!=='todos'){
     list = list.filter(p=> riscoNivel(missingPotential(p).pct)===state.filterRiscoAnuncios);
   }
+  if(state.filterVendedorAnuncios){
+    list = state.filterVendedorAnuncios==='__sem__'
+      ? list.filter(p=>!p.vendedor)
+      : list.filter(p=>p.vendedor===state.filterVendedorAnuncios);
+  }
   list.sort((a,b)=> missingPotential(b).pct - missingPotential(a).pct);
+
+  const vendedoresExistentes = Array.from(new Set(liberados.map(p=>p.vendedor).filter(Boolean))).sort();
 
   const summaryHtml = `<div class="stage-strip">${summary.map(s=>`
     <div class="stage-chip" style="border-left-color:var(--green)">
@@ -1319,9 +1398,19 @@ function renderAnuncios(){
         <option value="em_andamento" ${state.filterStatusAnuncios==='em_andamento'?'selected':''}>Em andamento</option>
         <option value="anunciado" ${state.filterStatusAnuncios==='anunciado'?'selected':''}>Anunciado</option>
       </select>
+      <select id="anun-vendedor">
+        <option value="" ${state.filterVendedorAnuncios===''?'selected':''}>Todos os vendedores</option>
+        <option value="__sem__" ${state.filterVendedorAnuncios==='__sem__'?'selected':''}>Sem vendedor atribuído</option>
+        ${vendedoresExistentes.map(v=>`<option value="${esc(v)}" ${state.filterVendedorAnuncios===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select>
       <button class="btn small secondary" id="anun-limpar">Limpar filtros</button>
     </div>
-    <div class="pill-select" id="anun-risco-filter" style="margin:-6px 0 14px 0;">
+    <div class="toolbar" style="margin-top:-8px;">
+      <input type="text" id="anun-meu-vendedor" placeholder="Seu nome (vendedor)…" value="${esc(state.meuVendedor)}" style="max-width:220px;">
+      <button class="btn small ${state.filterVendedorAnuncios && state.filterVendedorAnuncios===state.meuVendedor ? '' : 'secondary'}" id="anun-so-meus">★ Meus anúncios</button>
+      <span style="font-size:11.5px;color:var(--muted);">Preencha seu nome uma vez — fica salvo neste navegador. Depois é só clicar em "Atribuir a mim" em cada produto que você anuncia.</span>
+    </div>
+    <div class="pill-select" id="anun-risco-filter" style="margin:8px 0 14px 0;">
       ${[['todos','Todos os riscos'],['alto','⚠ Alto risco (≥15%)'],['medio','Risco médio (5–15%)'],['baixo','Baixo risco (<5%)']].map(([v,label])=>
         `<button data-r="${v}" class="${state.filterRiscoAnuncios===v?'active':''}">${label}</button>`
       ).join('')}
@@ -1336,8 +1425,13 @@ function renderAnuncios(){
     const riscoHtml = risco.pct > 0.05
       ? `<div style="font-size:11px;color:var(--yellow-ink);margin-top:5px;" title="Faltando em: ${esc(risco.canais.join(', '))}">⚠ ~${risco.pct.toFixed(1)}% do potencial de vendas ainda fora do ar</div>`
       : `<div style="font-size:11px;color:var(--green-ink);margin-top:5px;">✓ Anunciado em todos os canais com peso relevante</div>`;
+    const souEu = p.vendedor && p.vendedor===state.meuVendedor;
+    const vendedorHtml = `<div style="margin-top:6px;font-size:11px;display:flex;align-items:center;gap:6px;">
+      ${p.vendedor ? `<span class="badge ok" style="background:var(--blue);border-color:var(--blue);">👤 ${esc(p.vendedor)}</span>` : '<span class="badge hold">Sem vendedor</span>'}
+      <button class="btn small secondary" data-assign="${esc(p.id)}" style="padding:2px 8px;font-size:10.5px;">${souEu ? 'Remover atribuição' : 'Atribuir a mim'}</button>
+    </div>`;
     return `<tr>
-      <td><strong>${esc(p.modelo||'(sem nome)')}</strong>${p.cor?`<div style="color:var(--muted);font-size:11.5px;">${esc(p.cor)}</div>`:''}<div class="mono" style="color:var(--muted);font-size:11px;">${esc(p.sku||'')} · ${esc(p.linha||'')}</div>${riscoHtml}</td>
+      <td><strong>${esc(p.modelo||'(sem nome)')}</strong>${p.cor?`<div style="color:var(--muted);font-size:11.5px;">${esc(p.cor)}</div>`:''}<div class="mono" style="color:var(--muted);font-size:11px;">${esc(p.sku||'')} · ${esc(p.linha||'')}</div>${riscoHtml}${vendedorHtml}</td>
       <td><div class="chan-grid">${canaisHtml}</div></td>
     </tr>`;
   }).join('');
@@ -1353,11 +1447,25 @@ function renderAnuncios(){
   document.getElementById('anun-linha').addEventListener('change', (e)=>{ state.filterLinhaAnuncios=e.target.value; renderAnuncios(); });
   document.getElementById('anun-canal').addEventListener('change', (e)=>{ state.filterCanalFaltando=e.target.value; if(!e.target.value) state.filterStatusAnuncios=''; renderAnuncios(); });
   document.getElementById('anun-status').addEventListener('change', (e)=>{ state.filterStatusAnuncios=e.target.value; renderAnuncios(); });
+  document.getElementById('anun-vendedor').addEventListener('change', (e)=>{ state.filterVendedorAnuncios=e.target.value; renderAnuncios(); });
   document.getElementById('anun-limpar').addEventListener('click', ()=>{
-    state.searchAnuncios=''; state.filterLinhaAnuncios='todas'; state.filterCanalFaltando=''; state.filterStatusAnuncios=''; state.filterRiscoAnuncios='todos';
+    state.searchAnuncios=''; state.filterLinhaAnuncios='todas'; state.filterCanalFaltando=''; state.filterStatusAnuncios=''; state.filterRiscoAnuncios='todos'; state.filterVendedorAnuncios='';
+    renderAnuncios();
+  });
+  document.getElementById('anun-meu-vendedor').addEventListener('input', (e)=>{ state.meuVendedor=e.target.value; prefsSet('vendedor', state.meuVendedor); });
+  document.getElementById('anun-so-meus').addEventListener('click', ()=>{
+    if(!state.meuVendedor.trim()){ toast('Preencha seu nome no campo "Seu nome (vendedor)" primeiro.'); document.getElementById('anun-meu-vendedor').focus(); return; }
+    state.filterVendedorAnuncios = (state.filterVendedorAnuncios===state.meuVendedor) ? '' : state.meuVendedor;
     renderAnuncios();
   });
   el.querySelectorAll('#anun-risco-filter button').forEach(b=>b.addEventListener('click', ()=>{ state.filterRiscoAnuncios=b.dataset.r; renderAnuncios(); }));
+  el.querySelectorAll('[data-assign]').forEach(b=>b.addEventListener('click', ()=>{
+    if(!state.meuVendedor.trim()){ toast('Preencha seu nome no campo "Seu nome (vendedor)" primeiro.'); document.getElementById('anun-meu-vendedor').focus(); return; }
+    const p = state.products.find(x=>x.id===b.dataset.assign);
+    if(!p) return;
+    const novo = (p.vendedor===state.meuVendedor) ? '' : state.meuVendedor;
+    saveProduct(p.id, {vendedor: novo});
+  }));
   el.querySelectorAll('.chan-btn').forEach(b=>b.addEventListener('click', ()=>{
     const p = state.products.find(x=>x.id===b.dataset.id);
     if(!p) return;
