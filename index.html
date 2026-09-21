@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Produção</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#F8F5EF;
+    --surface:#FFFFFF;
+    --surface-2:#F1EDE4;
+    --ink:#1D1D1F;
+    --muted:#6E6E73;
+    --line:#E7E2D6;
+    --line-strong:#D9D3C3;
+    --red:#FF3B30;
+    --red-ink:#C8281F;
+    --yellow:#FF9F0A;
+    --yellow-ink:#9A6300;
+    --green:#30B155;
+    --green-ink:#1E8A3E;
+    --blue:#0071E3;
+    --blue-ink:#0058B0;
+    --radius:12px;
+    --radius-sm:8px;
+    --font-display:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    --font-body:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,monospace;
+    --shadow:0 1px 2px rgba(20,20,22,.04), 0 4px 14px rgba(20,20,22,.05);
+    --shadow-lg:0 12px 36px rgba(20,20,22,.14);
+    color-scheme: light;
+  }
+  :root[data-theme="dark"]{
+    --bg:#000000;
+    --surface:#1C1C1E;
+    --surface-2:#2C2C2E;
+    --ink:#F5F5F7;
+    --muted:#8E8E93;
+    --line:#38383A;
+    --line-strong:#48484A;
+    --red:#FF453A;
+    --red-ink:#FFA19B;
+    --yellow:#FF9F0A;
+    --yellow-ink:#FFCA80;
+    --green:#32D74B;
+    --green-ink:#8CEE9E;
+    --blue:#0A84FF;
+    --blue-ink:#7CC0FF;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+    --shadow-lg:0 16px 40px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    letter-spacing:-.005em;
+    transition:background-color .25s ease, color .25s ease;
+  }
+  #app{display:flex;min-height:100vh;}
+  a{color:inherit;}
+
+  /* ---------- rail ---------- */
+  .rail{
+    width:216px;
+    flex:0 0 216px;
+    background:var(--surface-2);
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    padding:20px 0;
+    border-right:1px solid var(--line);
+  }
+  .rail-brand{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:-.01em;
+    padding:0 20px 18px 20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:12px;
+  }
+  .rail-brand small{
+    display:block;
+    font-family:var(--font-body);
+    font-weight:400;
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:3px;
+    letter-spacing:normal;
+  }
+  .rail-nav{display:flex;flex-direction:column;gap:2px;padding:0 10px;}
+  .rail-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-family:var(--font-body);
+    font-size:13.5px;
+    font-weight:500;
+    text-align:left;
+    padding:9px 11px;
+    border-radius:var(--radius-sm);
+    cursor:pointer;
+    transition:background-color .15s ease, color .15s ease;
+  }
+  .rail-btn .n{
+    margin-left:auto;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    color:var(--muted);
+    background:var(--surface);
+    padding:1px 6px;
+    border-radius:8px;
+    border:1px solid var(--line);
+  }
+  .rail-btn:hover{background:var(--surface);color:var(--ink);}
+  .rail-btn.active{background:var(--blue);color:#fff;font-weight:600;}
+  .rail-btn.active .n{background:rgba(255,255,255,.22);color:#fff;border-color:transparent;}
+  .rail-foot{margin-top:auto;padding:14px 20px 0 20px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;}
+
+  /* ---------- main ---------- */
+  main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:18px 30px;
+    border-bottom:1px solid var(--line);
+    background:var(--bg);
+  }
+  .topbar h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:21px;
+    margin:0;
+    letter-spacing:-.015em;
+  }
+  .topbar .sub{color:var(--muted);font-size:12.5px;margin-top:3px;}
+  .topbar-actions{margin-left:auto;display:flex;gap:10px;align-items:center;}
+  .conn-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;}
+  .conn-dot.off{background:var(--muted);}
+  .conn-label{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  .theme-toggle{
+    display:flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:50%;
+    background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+    font-size:14px;padding:0;
+  }
+  .theme-toggle:hover{background:var(--line);}
+
+  .view{padding:26px 30px 60px 30px;flex:1;overflow:auto;}
+  .view[hidden]{display:none;}
+
+  /* ---------- buttons / inputs ---------- */
+  button{font-family:var(--font-body);cursor:pointer;}
+  .btn{
+    background:var(--ink);
+    color:var(--bg);
+    border:1px solid var(--ink);
+    padding:8px 16px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:600;
+    transition:opacity .15s ease, transform .1s ease;
+  }
+  .btn:hover{opacity:.85;}
+  .btn:active{transform:scale(.97);}
+  .btn.secondary{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);font-weight:500;}
+  .btn.danger{background:transparent;color:var(--red);border:1px solid var(--red);font-weight:500;}
+  .btn.small{padding:5px 12px;font-size:12px;}
+  input[type=text],input[type=search],select,textarea{
+    font-family:var(--font-body);
+    background:var(--surface);
+    border:1px solid var(--line-strong);
+    color:var(--ink);
+    border-radius:var(--radius-sm);
+    padding:8px 10px;
+    font-size:13px;
+  }
+  input:focus,select:focus,textarea:focus,button:focus-visible{
+    outline:2px solid var(--blue);
+    outline-offset:1px;
+  }
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:500;}
+  .field{margin-bottom:14px;}
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;min-width:0;}
+
+  code.sku, .mono{font-family:var(--font-mono);font-size:12.5px;}
+
+  /* ---------- stage summary strip ---------- */
+  .stage-strip{display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap;}
+  .stage-chip{
+    flex:1;min-width:150px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    box-shadow:var(--shadow);
+  }
+  .stage-chip .count{font-family:var(--font-display);font-size:26px;font-weight:700;line-height:1;letter-spacing:-.02em;}
+  .stage-chip .label{font-size:12px;color:var(--ink);margin-top:6px;font-weight:600;}
+  .stage-chip .who{font-size:11.5px;color:var(--muted);margin-top:1px;}
+
+  /* ---------- kanban ---------- */
+  .kanban-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+  .kanban{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;}
+  .kcol{
+    flex:1 1 260px;
+    min-width:260px;
+    max-width:420px;
+    background:var(--surface-2);
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    display:flex;flex-direction:column;
+    max-height:calc(100vh - 260px);
+  }
+  .kcol-head{
+    padding:13px 14px;
+    display:flex;align-items:baseline;gap:8px;
+  }
+  .kcol-head h3{font-family:var(--font-display);font-size:13.5px;margin:0;font-weight:700;letter-spacing:-.01em;}
+  .kcol-head .who{font-size:11px;color:var(--muted);margin-left:auto;}
+  .kcol-body{padding:0 10px 10px 10px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;flex:1;}
+  .kcol-empty{font-size:12px;color:var(--muted);padding:14px 4px;text-align:center;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:11px 12px;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:box-shadow .15s ease, transform .1s ease;
+  }
+  .card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px);}
+  .card .linha-tag{
+    display:inline-block;font-size:10px;font-weight:600;letter-spacing:.01em;
+    color:var(--muted);background:var(--surface-2);border-radius:6px;padding:2px 7px;margin-bottom:7px;
+  }
+  .card .modelo{font-size:13px;font-weight:600;line-height:1.35;margin-bottom:4px;}
+  .card .meta{font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;gap:6px;}
+  .card .waiting{margin-top:7px;font-size:10.5px;color:var(--yellow-ink);font-weight:600;}
+
+  /* ---------- table (produtos / anuncios) ---------- */
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .toolbar .grow{flex:1;min-width:180px;}
+  table{width:100%;border-collapse:collapse;background:var(--surface);font-size:12.8px;}
+  thead th{
+    text-align:left;font-size:11px;letter-spacing:.01em;
+    color:var(--muted);border-bottom:1px solid var(--line);padding:10px 12px;font-weight:600;
+    position:sticky;top:0;background:var(--surface);
+  }
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--surface-2);}
+  .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);max-height:70vh;box-shadow:var(--shadow);}
+
+  .badge{
+    display:inline-block;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:999px;
+    border:1px solid var(--line-strong);color:var(--muted);white-space:nowrap;
+  }
+  .badge.ok{background:var(--green);color:#fff;border-color:var(--green);}
+  .badge.pend{background:var(--yellow);color:#2B1D00;border-color:var(--yellow);}
+  .badge.hold{background:transparent;color:var(--muted);}
+
+  .chan-btn{
+    font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:999px;border:1px solid var(--line-strong);
+    background:var(--surface);color:var(--muted);min-width:56px;text-align:center;
+  }
+  .chan-btn[data-s="anunciar"]{background:var(--yellow);color:#2B1D00;border-color:var(--yellow);}
+  .chan-btn[data-s="em_andamento"]{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .chan-btn[data-s="anunciado"]{background:var(--green);color:#fff;border-color:var(--green);}
+  .chan-grid{display:flex;flex-wrap:wrap;gap:6px;}
+
+  /* ---------- empty state ---------- */
+  .empty{
+    border:1px dashed var(--line-strong);border-radius:var(--radius);padding:48px 20px;text-align:center;color:var(--muted);
+    background:var(--surface);
+  }
+  .empty h3{font-family:var(--font-display);color:var(--ink);margin:0 0 6px 0;font-size:17px;font-weight:700;}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,20,22,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .modal{
+    background:var(--surface);border-radius:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto;
+    box-shadow:var(--shadow-lg);
+  }
+  .modal-head{display:flex;align-items:flex-start;gap:10px;padding:20px 22px 14px 22px;border-bottom:1px solid var(--line);}
+  .modal-head h2{font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;letter-spacing:-.01em;}
+  .modal-head .close{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;line-height:1;padding:2px 4px;}
+  .modal-body{padding:20px 22px;}
+  .modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;}
+  .stage-track{display:flex;gap:4px;margin-bottom:18px;}
+  .stage-track .seg{flex:1;height:5px;border-radius:3px;background:var(--line);}
+  .stage-track .seg.done{background:var(--green);}
+  .stage-track .seg.now{background:var(--yellow);}
+  .gate-note{font-size:12.5px;color:var(--muted);background:var(--surface-2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;}
+  .checkline{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .checkline:last-child{border-bottom:none;}
+  .checkline .ok-mark{width:18px;height:18px;border-radius:50%;flex:0 0 18px;display:flex;align-items:center;justify-content:center;font-size:10px;border:1.5px solid var(--line-strong);color:transparent;}
+  .checkline .ok-mark.on{background:var(--green);border-color:var(--green);color:#fff;}
+  .checkline .txt{flex:1;}
+  .checkline .who{font-size:11px;color:var(--muted);}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13px;z-index:100;
+    box-shadow:var(--shadow-lg);
+  }
+
+  .import-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;}
+  @media (max-width:860px){.import-grid{grid-template-columns:1fr;}}
+  .sample{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-family:var(--font-mono);font-size:11.5px;white-space:pre;overflow-x:auto;}
+
+  .pill-select{display:flex;gap:6px;flex-wrap:wrap;}
+  .pill-select button{
+    border:1px solid var(--line-strong);background:var(--surface);color:var(--muted);
+    border-radius:999px;padding:5px 13px;font-size:12px;font-weight:500;
+  }
+  .pill-select button.active{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600;}
+
+  @media (max-width:760px){
+    .rail{width:64px;flex-basis:64px;}
+    .rail-brand{display:none;}
+    .rail-btn span.label{display:none;}
+    .rail-btn{justify-content:center;}
+    .rail-btn .n{display:none;}
+    .view{padding:16px;}
+    .topbar{padding:12px 16px;}
+  }
+</style>
+</head>
+<body>
+<div id="setup-banner" style="display:none;background:#FFF3CD;color:#5C4400;padding:14px 20px;font-size:13.5px;border-bottom:2px solid #E0B400;">
+  <strong>⚠ Banco de dados não configurado.</strong>
+  Abra o arquivo <code>index.html</code>, encontre as linhas <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> perto do topo do <code>&lt;script&gt;</code>, e cole a URL e a chave pública (anon) do seu projeto Supabase (Project Settings → API). O app está funcionando em modo local, só neste navegador, até isso ser preenchido.
+</div>
+<div id="app">
+  <aside class="rail">
+    <div class="rail-brand">PAINEL DE PRODUÇÃO<small>Lanzi Autoparts · MS Indústria</small></div>
+    <nav class="rail-nav" id="nav"></nav>
+    <div class="rail-foot">Fluxo: Cadastro → EAN/GS1 → Fotos → Liberação → Anúncios</div>
+  </aside>
+  <main>
+    <header class="topbar">
+      <div>
+        <h1 id="topbar-title">Kanban de produção</h1>
+        <div class="sub" id="topbar-sub">Acompanhe cada produto pela esteira, do cadastro até a liberação para anúncio.</div>
+      </div>
+      <div class="topbar-actions">
+        <select id="meu-setor-select" title="Filtrar pendências e avisos pelo seu setor"></select>
+        <button class="btn small secondary" id="notif-permission-btn" title="Ativar avisos do navegador enquanto o painel estiver aberto">🔔 Ativar avisos</button>
+        <button class="theme-toggle" id="theme-toggle-btn" title="Alternar entre claro e escuro">🌙</button>
+        <span class="conn-label"><span class="conn-dot off" id="conn-dot"></span><span id="conn-text">conectando…</span></span>
+      </div>
+    </header>
+
+    <section class="view" id="view-instrucoes" hidden></section>
+    <section class="view" id="view-kanban"></section>
+    <section class="view" id="view-produtos" hidden></section>
+    <section class="view" id="view-notificacoes" hidden></section>
+    <section class="view" id="view-anuncios" hidden></section>
+    <section class="view" id="view-importar" hidden></section>
+    <section class="view" id="view-config" hidden></section>
+  </main>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================= CONFIGURAÇÃO DO SUPABASE =============================
+   Cole aqui a URL e a chave pública (anon) do seu projeto Supabase.
+   Encontra isso em: Project Settings → API, no painel do Supabase.
+   A anon key é segura para deixar aqui — quem controla o que ela pode
+   fazer são as regras (RLS) definidas no banco, não a chave em si. */
+const SUPABASE_URL = 'https://wnvlelqfkdkqkmkoeltl.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_0WxRK7tYRfxY2oOcmapC2A_JO5CQGpQ';
+
+/* ============================= DATA MODEL =============================
+Produto:
+{
+  id, linha, modelo, cor, sku, ean,
+  cadastroDone (bool) - compra + cadastro sistema/Base/Tiny,
+  eanDone (bool)      - EAN cadastrado no GS1,
+  fotosDone (bool)    - fotos finalizadas (Gabriel),
+  liberado (bool)     - Jéssica liberou p/ comercial,
+  liberadoPor (string), liberadoEm (iso),
+  canais: { [nomeCanal]: '' | 'anunciar' | 'em_andamento' | 'anunciado' },
+  criadoEm, atualizadoEm
+}
+========================================================================= */
+
+const STAGE_KEYS = ['cadastro','etapa2','fotos','anuncios'];
+const STAGE_META = {
+  cadastro:  { color:'var(--muted)',
+    propria:    {label:'Cadastro',            who:'Vitor'},
+    fornecedor: {label:'Compra e Cadastro',   who:'Vitor'} },
+  etapa2:    { color:'var(--blue)',
+    propria:    {label:'Produção',            who:'Vitória'},
+    fornecedor: {label:'Recebimento',         who:'Jéssica / Hugo'} },
+  fotos:     { color:'var(--yellow)',
+    propria:    {label:'Marketing',           who:'Marketing'},
+    fornecedor: {label:'Marketing',           who:'Marketing'} },
+  anuncios:  { color:'var(--green)',
+    propria:    {label:'Comercial',           who:'Comercial'},
+    fornecedor: {label:'Comercial',           who:'Comercial'} },
+};
+const ORIGEM_LABEL = {propria:'Fabricação própria', fornecedor:'Fornecedor / comprado'};
+function stageMeta(key, origem){
+  const e = STAGE_META[key];
+  const o = origem==='propria' ? e.propria : e.fornecedor;
+  return {key, color:e.color, label:o.label, who:o.who};
+}
+function genericStageMeta(key){
+  const a = stageMeta(key,'propria'), b = stageMeta(key,'fornecedor');
+  if(a.label===b.label && a.who===b.who) return a;
+  return {key, color:a.color, label:a.label+' / '+b.label, who:a.who+' / '+b.who};
+}
+const DEFAULT_CANAIS = ['Mercado Livre 1','Mercado Livre 2','Mercado Livre 3','Shopee 1','Shopee 2','Amazon','Magalu','Site Próprio','TikTok Shop'];
+const CHANNEL_FAMILY_WEIGHTS = [
+  {match:'Mercado Livre', pct:80},
+  {match:'Shopee', pct:11},
+  {match:'Amazon', pct:6.3},
+  {match:'TikTok', pct:1.8},
+  {match:'Magalu', pct:0.6},
+  {match:'Site', pct:0.3},
+];
+const LINHAS = ['Ecotap','Vélon','Bravur','Traseira Bravur','Porta Malas Bravur','Evox','Outra'];
+const LINHAS_PROPRIA = ['Bravur','Traseira Bravur','Porta Malas Bravur','Evox'];
+const CHAN_CYCLE = ['', 'anunciar', 'em_andamento', 'anunciado'];
+const CHAN_LABEL = {'':'—','anunciar':'Anunciar','em_andamento':'Em andamento','anunciado':'Anunciado'};
+const DEFAULT_PRAZOS = {cadastro:1, etapa2:2, fotos:2};
+const SETORES = ['todos','Vitor','Vitória','Jéssica / Hugo','Marketing','Comercial'];
+
+function nowIso(){ return new Date().toISOString(); }
+function uid(){ return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+function getOrigem(p){
+  // O fluxo é determinado inteiramente pela Linha do produto — Bravur e suas variações
+  // (Traseira Bravur, Porta Malas Bravur, Evox) são fabricação própria; as demais linhas
+  // são compradas de fornecedor. Não é um campo independente por produto.
+  return LINHAS_PROPRIA.includes(p.linha) ? 'propria' : 'fornecedor';
+}
+function getStage(p){
+  if(!p.cadastroDone || !p.sku) return 'cadastro';
+  const et2 = (p.etapa2Done!=null) ? !!p.etapa2Done : !!p.eanDone; // eanDone é o campo antigo, usado como base para produtos já importados
+  if(!et2) return 'etapa2';
+  if(!p.fotosDone) return 'fotos';
+  return 'anuncios';
+}
+function stageIndex(key){ return STAGE_KEYS.indexOf(key); }
+function matchesSetor(p){
+  if(state.meuSetor==='todos') return true;
+  return stageMeta(getStage(p), getOrigem(p)).who === state.meuSetor;
+}
+function familyOf(canal){
+  return CHANNEL_FAMILY_WEIGHTS.find(f=> canal.toLowerCase().includes(f.match.toLowerCase()));
+}
+function channelWeight(canal){
+  const fam = familyOf(canal);
+  if(!fam) return 0;
+  const siblings = state.canais.filter(c=>familyOf(c)===fam);
+  return fam.pct / (siblings.length || 1);
+}
+function missingPotential(p){
+  const faltando = state.canais.filter(c=> (p.canais&&p.canais[c])!=='anunciado');
+  const total = faltando.reduce((sum,c)=>sum+channelWeight(c), 0);
+  return {pct: total, canais: faltando};
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ============================= STATE ============================= */
+const state = {
+  view: 'kanban',
+  products: [],
+  canais: DEFAULT_CANAIS.slice(),
+  prazos: Object.assign({}, DEFAULT_PRAZOS),
+  dbReady: false,
+  useDb: null, // true/false once known
+  filterLinhaKanban: 'todas',
+  searchKanban: '',
+  searchProdutos: '',
+  filterLinhaProdutos: 'todas',
+  filterStageProdutos: 'todas',
+  searchAnuncios: '',
+  filterCanalFaltando: '',
+  filterLinhaAnuncios: 'todas',
+  filterStatusAnuncios: '',
+  filterRiscoAnuncios: 'todos',
+  filterSetorNotif: 'todos',
+  meuSetor: 'todos',
+  notifFeed: [],
+  modalProductId: null,
+  theme: 'light',
+  selectedProdutos: new Set(),
+  filterDuplicadosProdutos: false,
+  meuVendedor: '',
+  filterVendedorAnuncios: '',
+};
+
+/* ============================= PRAZOS / NOTIFICAÇÕES (helpers) ============================= */
+function addDays(date, days){ const d = new Date(date); d.setDate(d.getDate()+Number(days||0)); return d; }
+function stageDeadlineFor(p, stageKey, prazos){
+  const base = (p.stageEnteredKey===stageKey && p.stageEnteredAt) ? p.stageEnteredAt : (p.criadoEm || nowIso());
+  const dias = (prazos && prazos[stageKey]!=null) ? prazos[stageKey] : (DEFAULT_PRAZOS[stageKey]||2);
+  return addDays(base, dias).toISOString();
+}
+function deadlineInfo(p){
+  const stageKey = getStage(p);
+  if(stageKey==='anuncios') return null;
+  const deadlineIso = (p.stageEnteredKey===stageKey && p.stageDeadline) ? p.stageDeadline : stageDeadlineFor(p, stageKey, state.prazos);
+  const diffMs = new Date(deadlineIso).getTime() - Date.now();
+  const diffDays = Math.ceil(diffMs / 86400000);
+  let statusClass, label;
+  if(diffMs < 0){ statusClass='atrasado'; label = `Atrasado ${Math.abs(diffDays)}d`; }
+  else if(diffDays<=0){ statusClass='hoje'; label = 'Vence hoje'; }
+  else { statusClass='ok'; label = `${diffDays}d restante${diffDays===1?'':'s'}`; }
+  return {stageKey, deadlineIso, statusClass, label};
+}
+function withStageTracking(current, patch){
+  const merged = Object.assign({}, current, patch);
+  if(merged.hasOwnProperty !== undefined && patch.hasOwnProperty('fotosDone')){
+    merged.liberado = !!patch.fotosDone;
+  }
+  const newStage = getStage(merged);
+  if(merged.stageEnteredKey !== newStage){
+    merged.stageEnteredKey = newStage;
+    merged.stageEnteredAt = nowIso();
+    merged.stageDeadline = newStage!=='anuncios' ? stageDeadlineFor(merged, newStage, state.prazos) : '';
+  }
+  return merged;
+}
+
+let sb = null;
+let pollTimer = null;
+let stageCache = new Map();
+let firstFetch = true;
+
+/* ============================= TOAST ============================= */
+function toast(msg){
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className='toast';
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, 3200);
+}
+
+/* ============================= NOTIFICAÇÕES ============================= */
+function pushNotif(texto, setor){
+  state.notifFeed.unshift({ts: nowIso(), texto, setor});
+  if(state.notifFeed.length>60) state.notifFeed.length = 60;
+  if(setorMatches(setor)) toast(texto);
+  if(state.view==='notificacoes') renderNotificacoes();
+  renderNav();
+}
+function browserNotify(title, body){
+  try{
+    if(typeof Notification !== 'undefined' && Notification.permission==='granted'){
+      new Notification(title, {body});
+    }
+  }catch(e){}
+}
+function setorMatches(setor){
+  return state.meuSetor==='todos' || state.meuSetor===setor;
+}
+function notifyNewProduct(p){
+  const s = stageMeta('cadastro', getOrigem(p));
+  pushNotif(`Novo produto: ${p.modelo||p.sku||'sem nome'} — falta cadastrar (responsável: ${s.who})`, s.who);
+  if(setorMatches(s.who)) browserNotify('Novo produto cadastrado', `${p.modelo||p.sku||'Produto novo'} · responsável: ${s.who}`);
+}
+function notifyStageChange(p, prevKey, newKey){
+  const s = stageMeta(newKey, getOrigem(p));
+  const texto = newKey==='anuncios'
+    ? `${p.modelo||p.sku} foi liberado — o comercial já pode anunciar`
+    : `${p.modelo||p.sku} está pronto para a etapa "${s.label}" (responsável: ${s.who})`;
+  pushNotif(texto, s.who);
+  if(setorMatches(s.who)) browserNotify('Próxima etapa liberada', texto);
+}
+function updateNotifPermButton(){
+  const btn = document.getElementById('notif-permission-btn');
+  if(!btn) return;
+  if(typeof Notification==='undefined'){ btn.hidden = true; return; }
+  if(Notification.permission==='granted'){ btn.textContent = '🔔 Avisos ativados'; btn.disabled = true; }
+  else if(Notification.permission==='denied'){ btn.textContent = '🔔 Avisos bloqueados'; btn.disabled = true; }
+  else{ btn.textContent = '🔔 Ativar avisos'; btn.disabled = false; }
+}
+function prefsGet(key, fallback){
+  try{ const v = window.localStorage.getItem('painel_'+key); return v==null ? fallback : v; }catch(e){ return fallback; }
+}
+function prefsSet(key, value){
+  try{ window.localStorage.setItem('painel_'+key, value); }catch(e){}
+}
+function initTopbarControls(){
+  state.theme = prefsGet('theme', state.theme);
+  state.meuSetor = prefsGet('setor', state.meuSetor);
+  state.filterSetorNotif = state.meuSetor;
+  state.meuVendedor = prefsGet('vendedor', state.meuVendedor);
+
+  document.documentElement.setAttribute('data-theme', state.theme);
+  const themeBtn = document.getElementById('theme-toggle-btn');
+  themeBtn.textContent = state.theme==='dark' ? '☀️' : '🌙';
+  themeBtn.addEventListener('click', ()=>{
+    state.theme = state.theme==='dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', state.theme);
+    themeBtn.textContent = state.theme==='dark' ? '☀️' : '🌙';
+    prefsSet('theme', state.theme);
+  });
+
+  const sel = document.getElementById('meu-setor-select');
+  sel.innerHTML = SETORES.map(s=>`<option value="${esc(s)}">${s==='todos'?'Meu setor: todos':('Meu setor: '+s)}</option>`).join('');
+  sel.value = state.meuSetor;
+  sel.addEventListener('change', ()=>{
+    state.meuSetor = sel.value;
+    state.filterSetorNotif = sel.value;
+    prefsSet('setor', state.meuSetor);
+    renderCurrentView();
+    renderNav();
+  });
+  updateNotifPermButton();
+  const btn = document.getElementById('notif-permission-btn');
+  btn.addEventListener('click', async ()=>{
+    if(typeof Notification==='undefined') return;
+    try{ await Notification.requestPermission(); }catch(e){}
+    updateNotifPermButton();
+  });
+}
+
+/* ============================= NAV ============================= */
+const NAV_ITEMS = [
+  {key:'instrucoes', label:'Instruções', icon:'📘', title:'Instruções', sub:'Como o fluxo funciona e como usar cada aba do painel.'},
+  {key:'kanban', label:'Kanban', icon:'▤', title:'Kanban de produção', sub:'Acompanhe cada produto pela esteira, do cadastro até a liberação para anúncio.'},
+  {key:'produtos', label:'Produtos', icon:'▦', title:'Cadastro de produtos', sub:'Registre a compra e preencha SKU, EAN e fotos — cada campo pertence a um responsável.'},
+  {key:'notificacoes', label:'Notificações', icon:'🔔', title:'Notificações e prazos', sub:'O que cada setor precisa fazer agora e até quando — atualiza ao vivo para quem estiver com o painel aberto.'},
+  {key:'anuncios', label:'Anúncios', icon:'▥', title:'Gestão de anúncios', sub:'Produtos liberados: onde já está anunciado e onde ainda falta publicar.'},
+  {key:'importar', label:'Importar', icon:'▧', title:'Importar planilha', sub:'Cole os dados da planilha atual para trazer o histórico de produtos.'},
+  {key:'config', label:'Ajustes', icon:'▨', title:'Canais e prazos', sub:'Ajuste os marketplaces usados nos anúncios e o prazo de cada etapa do fluxo.'},
+];
+
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = NAV_ITEMS.map(it=>{
+    let count = '';
+    if(it.key==='kanban') count = state.products.length;
+    if(it.key==='anuncios') count = state.products.filter(p=>p.liberado).length;
+    if(it.key==='notificacoes') count = state.products.filter(p=>{ if(!matchesSetor(p)) return false; const info = deadlineInfo(p); return info && (info.statusClass==='atrasado' || info.statusClass==='hoje'); }).length;
+    return `<button class="rail-btn ${state.view===it.key?'active':''}" data-nav="${it.key}">
+      <span>${it.icon}</span><span class="label">${it.label}</span>
+      ${count!==''?`<span class="n">${count}</span>`:''}
+    </button>`;
+  }).join('');
+  nav.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click', ()=>switchView(b.dataset.nav)));
+}
+
+function switchView(v){
+  state.view = v;
+  const item = NAV_ITEMS.find(i=>i.key===v);
+  document.getElementById('topbar-title').textContent = item.title;
+  document.getElementById('topbar-sub').textContent = item.sub;
+  NAV_ITEMS.forEach(i=>{ document.getElementById('view-'+i.key).hidden = i.key!==v; });
+  renderNav();
+  renderCurrentView();
+}
+
+function renderCurrentView(){
+  if(state.view==='instrucoes') renderInstrucoes();
+  else if(state.view==='kanban') renderKanban();
+  else if(state.view==='produtos') renderProdutos();
+  else if(state.view==='notificacoes') renderNotificacoes();
+  else if(state.view==='anuncios') renderAnuncios();
+  else if(state.view==='importar') renderImportar();
+  else if(state.view==='config') renderConfig();
+}
+
+function renderAll(){
+  renderNav();
+  updateConnBadge();
+  renderCurrentView();
+}
+
+function updateConnBadge(){
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  if(state.useDb===true){ dot.classList.remove('off'); txt.textContent='dados sincronizados'; }
+  else if(state.useDb===false){ dot.classList.add('off'); txt.textContent='modo local (não sincroniza entre pessoas)'; }
+  else { dot.classList.add('off'); txt.textContent='conectando…'; }
+}
+
+/* ============================= MAPEAMENTO DE LINHAS (Supabase usa snake_case) ============================= */
+function rowToProduct(r){
+  return {
+    id: r.id, linha: r.linha, modelo: r.modelo, cor: r.cor, sku: r.sku, ean: r.ean,
+    cadastroDone: !!r.cadastro_done, etapa2Done: !!r.etapa2_done, fotosDone: !!r.fotos_done,
+    liberado: !!r.liberado, liberadoPor: r.liberado_por||'', liberadoEm: r.liberado_em||'',
+    previsaoChegada: r.previsao_chegada||'', canais: r.canais||{}, vendedor: r.vendedor||'',
+    stageEnteredKey: r.stage_entered_key||'', stageEnteredAt: r.stage_entered_at||'', stageDeadline: r.stage_deadline||'',
+    criadoEm: r.criado_em||'', atualizadoEm: r.atualizado_em||''
+  };
+}
+function productToRow(p){
+  return {
+    id: p.id, linha: p.linha||'Ecotap', modelo: p.modelo||'', cor: p.cor||'', sku: p.sku||'', ean: p.ean||'',
+    cadastro_done: !!p.cadastroDone, etapa2_done: !!p.etapa2Done, fotos_done: !!p.fotosDone,
+    liberado: !!p.liberado, liberado_por: p.liberadoPor||'', liberado_em: p.liberadoEm||'',
+    previsao_chegada: p.previsaoChegada||'', canais: p.canais||{}, vendedor: p.vendedor||'',
+    stage_entered_key: p.stageEnteredKey||'', stage_entered_at: p.stageEnteredAt||'', stage_deadline: p.stageDeadline||'',
+    criado_em: p.criadoEm||'', atualizado_em: p.atualizadoEm||''
+  };
+}
+
+/* ============================= PERSISTENCE ============================= */
+async function saveProduct(id, patch){
+  const current = state.products.find(p=>p.id===id) || {id, criadoEm: nowIso(), canais:{}};
+  const merged = withStageTracking(current, Object.assign({}, patch, {atualizadoEm: nowIso()}));
+  if(state.useDb){
+    try{
+      const {error} = await sb.from('products').upsert(productToRow(merged));
+      if(error) throw error;
+    }catch(e){ toast('Erro ao salvar: '+(e&&e.message||e)); }
+  }
+  const idx = state.products.findIndex(p=>p.id===id);
+  if(idx>=0) state.products[idx]=merged; else state.products.push(merged);
+  renderAll();
+  return merged;
+}
+
+async function createProduct(data){
+  const id = uid();
+  const base = Object.assign({
+    id, linha:'Ecotap', modelo:'', cor:'', sku:'', ean:'', previsaoChegada:'', vendedor:'',
+    cadastroDone:false, etapa2Done:false, fotosDone:false, liberado:false,
+    liberadoPor:'', liberadoEm:'', canais:{}, criadoEm: nowIso(), atualizadoEm: nowIso()
+  }, data);
+  const doc = withStageTracking({}, base);
+  if(state.useDb){
+    try{
+      const {error} = await sb.from('products').insert(productToRow(doc));
+      if(error) throw error;
+    }catch(e){ toast('Erro ao criar produto: '+(e&&e.message||e)); }
+  }
+  state.products.push(doc);
+  if(!state.useDb) notifyNewProduct(doc); // no modo conectado, o próprio ciclo de atualização detecta e avisa
+  renderAll();
+  return id;
+}
+
+async function deleteProduct(id){
+  if(state.useDb){
+    try{
+      const {error} = await sb.from('products').delete().eq('id', id);
+      if(error) throw error;
+    }catch(e){ toast('Erro ao remover: '+(e&&e.message||e)); }
+  }
+  state.products = state.products.filter(p=>p.id!==id);
+  renderAll();
+}
+
+async function saveCanais(list){
+  state.canais = list;
+  if(state.useDb){
+    try{
+      const {error} = await sb.from('config').upsert({key:'canais', value:{list}});
+      if(error) throw error;
+    }catch(e){ toast('Erro ao salvar canais: '+(e&&e.message||e)); }
+  }
+  renderAll();
+}
+
+async function savePrazos(prazos){
+  state.prazos = prazos;
+  if(state.useDb){
+    try{
+      const {error} = await sb.from('config').upsert({key:'prazos', value:{prazos}});
+      if(error) throw error;
+    }catch(e){ toast('Erro ao salvar prazos: '+(e&&e.message||e)); }
+  }
+  renderAll();
+}
+
+/* ============================= DUPLICADOS DE EAN ============================= */
+function duplicateEanIds(){
+  const byEan = {};
+  state.products.forEach(p=>{
+    const ean = (p.ean||'').trim();
+    if(!ean) return;
+    (byEan[ean] = byEan[ean] || []).push(p.id);
+  });
+  const ids = new Set();
+  Object.values(byEan).forEach(list=>{ if(list.length>1) list.forEach(id=>ids.add(id)); });
+  return ids;
+}
+function findDuplicateWarning(form, ownId){
+  const skuNorm = (form.sku||'').trim().toLowerCase();
+  const eanNorm = (form.ean||'').trim().toLowerCase();
+  if(!skuNorm && !eanNorm) return null;
+  const clash = state.products.find(x=> x.id!==ownId && (
+    (skuNorm && (x.sku||'').trim().toLowerCase()===skuNorm) ||
+    (eanNorm && (x.ean||'').trim().toLowerCase()===eanNorm)
+  ));
+  if(!clash) return null;
+  return `Salvo, mas atenção: "${clash.modelo||clash.sku||'outro produto'}" já usa esse mesmo SKU ou EAN.`;
+}
+
+/* ============================= EXPORTAR CSV ============================= */
+function csvEscape(v){
+  const s = String(v==null?'':v);
+  if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function exportProdutosCSV(list){
+  const headers = ['Linha','Fluxo','Modelo','Cor','SKU','EAN','Etapa atual','Cadastro concluído','Etapa 2 concluída','Fotos concluídas','Liberado'].concat(state.canais);
+  const lines = [headers.map(csvEscape).join(',')];
+  list.forEach(p=>{
+    const s = stageMeta(getStage(p), getOrigem(p));
+    const et2 = (p.etapa2Done!=null) ? !!p.etapa2Done : !!p.eanDone;
+    const row = [
+      p.linha||'', ORIGEM_LABEL[getOrigem(p)], p.modelo||'', p.cor||'', p.sku||'', p.ean||'',
+      s.label, p.cadastroDone?'sim':'não', et2?'sim':'não', p.fotosDone?'sim':'não', p.liberado?'sim':'não'
+    ].concat(state.canais.map(c=> CHAN_LABEL[(p.canais&&p.canais[c])||''] ));
+    lines.push(row.map(csvEscape).join(','));
+  });
+  const csv = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'produtos.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('CSV exportado.');
+}
+
+/* ============================= INIT SUPABASE ============================= */
+async function initSupabase(){
+  const configurado = SUPABASE_URL && SUPABASE_ANON_KEY
+    && SUPABASE_URL.indexOf('COLE_AQUI')===-1 && SUPABASE_ANON_KEY.indexOf('COLE_AQUI')===-1;
+
+  if(!configurado){
+    state.useDb = false;
+    updateConnBadge();
+    const banner = document.getElementById('setup-banner');
+    if(banner) banner.style.display = 'block';
+    return;
+  }
+
+  try{
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }catch(e){ sb = null; }
+  if(!sb){ state.useDb = false; updateConnBadge(); return; }
+
+  async function fetchAll(){
+    try{
+      const [{data: rows, error: pErr}, {data: cfgRows, error: cErr}] = await Promise.all([
+        sb.from('products').select('*').range(0, 9999), // sem isso, o Supabase corta em 1000 linhas por padrão
+        sb.from('config').select('*'),
+      ]);
+      if(pErr) throw pErr;
+      if(cErr) throw cErr;
+
+      const newProducts = (rows||[]).map(rowToProduct);
+      if(firstFetch){
+        firstFetch = false;
+        newProducts.forEach(p=>stageCache.set(p.id, getStage(p)));
+      }else{
+        const seen = new Set();
+        newProducts.forEach(p=>{
+          seen.add(p.id);
+          const prevStage = stageCache.get(p.id);
+          if(prevStage===undefined){
+            notifyNewProduct(p);
+          }else{
+            const newStage = getStage(p);
+            if(prevStage!==newStage) notifyStageChange(p, prevStage, newStage);
+          }
+          stageCache.set(p.id, getStage(p));
+        });
+        Array.from(stageCache.keys()).forEach(id=>{ if(!seen.has(id)) stageCache.delete(id); });
+      }
+      state.products = newProducts;
+
+      (cfgRows||[]).forEach(row=>{
+        if(row.key==='canais' && row.value && Array.isArray(row.value.list) && row.value.list.length) state.canais = row.value.list;
+        if(row.key==='prazos' && row.value && row.value.prazos) state.prazos = Object.assign({}, DEFAULT_PRAZOS, row.value.prazos);
+      });
+
+      state.useDb = true;
+      updateConnBadge();
+      renderAll();
+    }catch(e){
+      toast('Conexão com o banco perdida: '+(e&&e.message||e));
+      state.useDb = false;
+      updateConnBadge();
+    }
+  }
+
+  await fetchAll();
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(fetchAll, 12000); // atualiza a cada 12s para refletir o que outras pessoas mudaram
+}
+
+/* ============================= INSTRUÇÕES ============================= */
+function renderInstrucoes(){
+  const el = document.getElementById('view-instrucoes');
+  el.innerHTML = `
+    <div style="max-width:760px;">
+
+      <div class="gate-note" style="font-size:13px;">
+        Esta aba explica como o painel funciona — é a versão em app da antiga aba "Instruções" da planilha.
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">O fluxo, do início ao anúncio</h3>
+      <p style="font-size:13px;line-height:1.6;color:var(--ink);">
+        Todo produto passa pelas mesmas 4 etapas, mas quem faz a 2ª etapa muda conforme a linha:
+      </p>
+      <div class="table-wrap" style="margin-bottom:16px;">
+        <table>
+          <thead><tr><th>Etapa</th><th>Responsável</th><th>O que é feito</th></tr></thead>
+          <tbody>
+            <tr><td><strong>1. Cadastro</strong></td><td>Vitor</td><td>Compra (quando for o caso), cadastro completo do produto, SKU e EAN.</td></tr>
+            <tr><td><strong>2a. Produção</strong> <span style="color:var(--muted);">(linhas próprias)</span></td><td>Vitória</td><td>Inclui na ordem de produção e acompanha a fabricação da amostra.</td></tr>
+            <tr><td><strong>2b. Recebimento</strong> <span style="color:var(--muted);">(linhas de fornecedor)</span></td><td>Jéssica / Hugo</td><td>Confere o recebimento e sinaliza que é produto novo.</td></tr>
+            <tr><td><strong>3. Marketing</strong></td><td>Marketing</td><td>Fotografa, produz banners e vídeos, organiza os materiais do anúncio.</td></tr>
+            <tr><td><strong>4. Comercial</strong></td><td>Comercial</td><td>Cadastra e publica os anúncios em cada marketplace, confere dados e preço.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">Quais linhas usam qual fluxo</h3>
+      <p style="font-size:13px;line-height:1.6;">
+        <strong>Fabricação própria</strong> (etapa 2 = Vitória): ${LINHAS_PROPRIA.join(', ')}.<br>
+        <strong>Fornecedor / comprado</strong> (etapa 2 = Jéssica/Hugo): as demais linhas (Ecotap, Vélon, Outra).<br>
+        Isso é automático — basta escolher a Linha certa na ficha do produto que o app já sabe qual fluxo seguir.
+      </p>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">O que cada aba faz</h3>
+      <div class="table-wrap" style="margin-bottom:16px;">
+        <table>
+          <thead><tr><th>Aba</th><th>Para que serve</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Kanban</strong></td><td>Visão geral de todos os produtos, organizados por etapa atual. Clique num card para abrir a ficha.</td></tr>
+            <tr><td><strong>Produtos</strong></td><td>Lista completa com busca, filtros e cadastro de produto novo. Aqui também dá pra selecionar vários produtos e aplicar uma ação em massa.</td></tr>
+            <tr><td><strong>Notificações</strong></td><td>O que está pendente e até quando, por setor. Filtra pelo seu setor no topo pra ver só o que é seu.</td></tr>
+            <tr><td><strong>Anúncios</strong></td><td>Só produtos já liberados pro Comercial. Marca o status de cada canal, atribui a si mesmo os anúncios que está tocando, e vê o risco de venda perdida por canal.</td></tr>
+            <tr><td><strong>Importar</strong></td><td>Cola linhas de uma planilha (linha, modelo, cor, sku, ean) pra criar vários produtos de uma vez. Já verifica duplicados de SKU/EAN antes de importar.</td></tr>
+            <tr><td><strong>Ajustes</strong></td><td>Lista de canais de venda usados nos anúncios e prazo (em dias) de cada etapa.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">Como marcar quais anúncios são seus (vendedores)</h3>
+      <p style="font-size:13px;line-height:1.6;">
+        Na aba <strong>Anúncios</strong>, preencha seu nome uma vez no campo "Seu nome (vendedor)" — fica salvo neste navegador, não precisa repetir. Depois, em qualquer produto que você estiver anunciando, clique em <strong>"Atribuir a mim"</strong>. A partir daí, o botão <strong>"★ Meus anúncios"</strong> filtra a lista só pros produtos que você atribuiu a si mesmo — e o filtro "Todos os vendedores" no topo deixa ver o que está atribuído a qualquer pessoa da equipe.
+      </p>
+
+      <h3 style="font-family:var(--font-display);font-size:16px;margin:22px 0 10px 0;">As cores dos canais em Anúncios</h3>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:12.5px;margin-bottom:20px;">
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" style="padding:1px 7px;">•</span> Não iniciado</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="anunciar" style="padding:1px 7px;">•</span> Anunciar (na fila)</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="em_andamento" style="padding:1px 7px;">•</span> Em andamento</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="anunciado" style="padding:1px 7px;">•</span> Anunciado (publicado)</span>
+      </div>
+    </div>`;
+}
+
+/* ============================= KANBAN ============================= */
+function renderKanban(){
+  const el = document.getElementById('view-kanban');
+  const active = document.activeElement;
+  const focusedId = active && active.id;
+  const selStart = (focusedId && active.selectionStart!=null) ? active.selectionStart : null;
+
+  const products = state.products.filter(p=>
+    (state.filterLinhaKanban==='todas' || p.linha===state.filterLinhaKanban) &&
+    matchesSetor(p) &&
+    (!state.searchKanban.trim() || (()=>{
+      const q = state.searchKanban.trim().toLowerCase();
+      return (p.modelo||'').toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q) || (p.ean||'').toLowerCase().includes(q);
+    })())
+  );
+  // Quando uma única linha está selecionada, o fluxo (própria/fornecedor) já é conhecido —
+  // então os rótulos das colunas mostram o responsável certo em vez do genérico.
+  const metaFor = (key)=> state.filterLinhaKanban==='todas'
+    ? genericStageMeta(key)
+    : stageMeta(key, getOrigem({linha: state.filterLinhaKanban}));
+
+  const counts = {};
+  STAGE_KEYS.forEach(k=>counts[k]=0);
+  products.forEach(p=>counts[getStage(p)]++);
+
+  const stripHtml = STAGE_KEYS.map(k=>{
+    const s = metaFor(k);
+    return `<div class="stage-chip" style="border-left-color:${s.color}">
+      <div class="count">${counts[k]}</div>
+      <div class="label">${esc(s.label)}</div>
+      <div class="who">responsável: ${esc(s.who)}</div>
+    </div>`;
+  }).join('');
+
+  const filterHtml = `
+    <div class="kanban-toolbar">
+      <input type="search" class="grow" id="kanban-search" placeholder="Buscar por modelo, SKU ou EAN…" value="${esc(state.searchKanban)}" style="flex:0 1 260px;">
+      <div class="pill-select" id="kanban-linha-filter">
+        ${['todas'].concat(LINHAS).map(l=>`<button data-l="${l}" class="${state.filterLinhaKanban===l?'active':''}">${l==='todas'?'Todas as linhas':l}</button>`).join('')}
+      </div>
+      <button class="btn small" id="kanban-novo">+ Novo produto</button>
+    </div>`;
+
+  const KANBAN_COL_LIMIT = 150;
+  const colsHtml = STAGE_KEYS.map(k=>{
+    const s = metaFor(k);
+    const allItems = products.filter(p=>getStage(p)===k).sort((a,b)=>(a.modelo||'').localeCompare(b.modelo||''));
+    const items = allItems.slice(0, KANBAN_COL_LIMIT);
+    const cardsHtml = items.length ? items.map(p=>cardHtml(p, k)).join('') :
+      `<div class="kcol-empty">Nenhum produto nesta etapa.</div>`;
+    const maisHtml = allItems.length > KANBAN_COL_LIMIT
+      ? `<div class="kcol-empty">Mostrando ${KANBAN_COL_LIMIT} de ${allItems.length} — use a busca ou o filtro de linha para refinar.</div>`
+      : '';
+    return `<div class="kcol" style="--stage-color:${s.color}">
+      <div class="kcol-head">
+        <h3>${esc(s.label)}</h3>
+        <span class="who">${esc(s.who)}</span>
+      </div>
+      <div class="kcol-body">${cardsHtml}${maisHtml}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = (products.length===0 && state.products.length===0)
+    ? emptyStateHtml('Nenhum produto cadastrado ainda', 'Cadastre o primeiro produto ou importe os dados da planilha atual.', true)
+    : `${stripHtml?`<div class="stage-strip">${stripHtml}</div>`:''}${filterHtml}<div class="kanban">${colsHtml}</div>`;
+
+  if(state.products.length===0){
+    const b1 = document.getElementById('empty-add'); if(b1) b1.addEventListener('click', ()=>{ createProduct({}).then(id=>openProductModal(id)); });
+    const b2 = document.getElementById('empty-import'); if(b2) b2.addEventListener('click', ()=>switchView('importar'));
+    return;
+  }
+
+  document.getElementById('kanban-search').addEventListener('input', (e)=>{ state.searchKanban=e.target.value; renderKanban(); });
+  el.querySelectorAll('#kanban-linha-filter button').forEach(b=>b.addEventListener('click', ()=>{ state.filterLinhaKanban=b.dataset.l; renderKanban(); }));
+  el.querySelectorAll('.card').forEach(c=>c.addEventListener('click', ()=>openProductModal(c.dataset.id)));
+  const novoBtn = document.getElementById('kanban-novo');
+  if(novoBtn) novoBtn.addEventListener('click', ()=>{ createProduct({}).then(id=>openProductModal(id)); });
+
+  if(focusedId){
+    const toFocus = document.getElementById(focusedId);
+    if(toFocus){
+      toFocus.focus();
+      if(selStart!=null && toFocus.setSelectionRange) toFocus.setSelectionRange(selStart, selStart);
+    }
+  }
+}
+
+function cardHtml(p, stageKey){
+  const origem = getOrigem(p);
+  let waiting = '';
+  if(stageKey==='cadastro') waiting = !p.sku ? 'Falta SKU / cadastro' : '';
+  if(stageKey==='etapa2') waiting = origem==='propria' ? 'Aguardando produção (Vitória)' : 'Aguardando recebimento (Jéssica/Hugo)';
+  if(stageKey==='fotos') waiting = 'Aguardando materiais do Marketing';
+  const info = deadlineInfo(p);
+  const prazoCor = info ? (info.statusClass==='atrasado' ? 'var(--red)' : (info.statusClass==='hoje' ? 'var(--yellow-ink)' : 'var(--muted)')) : '';
+  const prazoHtml = info ? `<div class="waiting" style="color:${prazoCor};${info.statusClass==='atrasado'?'font-weight:700;':''}">${esc(info.label)}</div>` : '';
+  return `<div class="card" data-id="${esc(p.id)}">
+    <span class="linha-tag">${esc(p.linha||'—')} · ${esc(ORIGEM_LABEL[origem])}</span>
+    <div class="modelo">${esc(p.modelo || '(sem nome ainda)')}${p.cor?` · ${esc(p.cor)}`:''}</div>
+    <div class="meta">
+      <span class="mono">${p.sku?esc(p.sku):'sem SKU'}</span>
+      <span class="mono">${p.ean?esc(p.ean):'sem EAN'}</span>
+    </div>
+    ${waiting?`<div class="waiting">${esc(waiting)}</div>`:''}
+    ${prazoHtml}
+  </div>`;
+}
+
+function emptyStateHtml(title, sub, showButtons){
+  return `<div class="empty">
+    <h3>${esc(title)}</h3>
+    <p>${esc(sub)}</p>
+    ${showButtons?`<div style="display:flex;gap:8px;justify-content:center;margin-top:14px;">
+      <button class="btn" id="empty-add">+ Cadastrar produto</button>
+      <button class="btn secondary" id="empty-import">Importar da planilha</button>
+    </div>`:''}
+  </div>`;
+}
+
+/* ============================= PRODUTOS (tabela / cadastro) ============================= */
+function renderProdutos(){
+  const el = document.getElementById('view-produtos');
+  const active = document.activeElement;
+  const focusedId = active && active.id;
+  const selStart = (focusedId && active.selectionStart!=null) ? active.selectionStart : null;
+
+  const dupIds = duplicateEanIds();
+
+  let list = state.products.slice();
+  if(state.filterLinhaProdutos!=='todas') list = list.filter(p=>p.linha===state.filterLinhaProdutos);
+  if(state.filterStageProdutos!=='todas') list = list.filter(p=>getStage(p)===state.filterStageProdutos);
+  list = list.filter(matchesSetor);
+  if(state.filterDuplicadosProdutos) list = list.filter(p=>dupIds.has(p.id));
+  if(state.searchProdutos.trim()){
+    const q = state.searchProdutos.trim().toLowerCase();
+    list = list.filter(p=> (p.modelo||'').toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q) || (p.ean||'').toLowerCase().includes(q));
+  }
+  list.sort((a,b)=>(b.atualizadoEm||'').localeCompare(a.atualizadoEm||''));
+
+  // a seleção não sobrevive a produtos que saíram da lista filtrada
+  const visibleIds = new Set(list.map(p=>p.id));
+  Array.from(state.selectedProdutos).forEach(id=>{ if(!visibleIds.has(id)) state.selectedProdutos.delete(id); });
+
+  const toolbar = `
+    <div class="toolbar">
+      <input type="search" class="grow" id="prod-search" placeholder="Buscar por modelo, SKU ou EAN…" value="${esc(state.searchProdutos)}">
+      <select id="prod-linha">
+        ${['todas'].concat(LINHAS).map(l=>`<option value="${l}" ${state.filterLinhaProdutos===l?'selected':''}>${l==='todas'?'Todas as linhas':l}</option>`).join('')}
+      </select>
+      <select id="prod-etapa">
+        <option value="todas" ${state.filterStageProdutos==='todas'?'selected':''}>Todas as etapas</option>
+        ${STAGE_KEYS.map(k=>genericStageMeta(k)).map(s=>`<option value="${s.key}" ${state.filterStageProdutos===s.key?'selected':''}>${esc(s.label)}</option>`).join('')}
+      </select>
+      ${dupIds.size ? `<button class="btn small ${state.filterDuplicadosProdutos?'':'secondary'}" id="prod-dup-toggle">⚠ EAN duplicado (${dupIds.size})</button>` : ''}
+      <button class="btn small secondary" id="prod-export">⬇ Exportar CSV</button>
+      <button class="btn" id="prod-novo">+ Novo produto</button>
+    </div>`;
+
+  const bulkBar = state.selectedProdutos.size ? `
+    <div class="toolbar" style="background:var(--surface-2);padding:10px 12px;border-radius:var(--radius-sm);margin-top:-4px;">
+      <strong style="font-size:12.5px;">${state.selectedProdutos.size} selecionado(s)</strong>
+      <button class="btn small secondary" id="bulk-cadastro">Marcar cadastro concluído</button>
+      <button class="btn small secondary" id="bulk-etapa2">Marcar etapa 2 concluída</button>
+      <button class="btn small secondary" id="bulk-fotos">Marcar fotos concluídas</button>
+      <button class="btn small danger" id="bulk-excluir">Excluir selecionados</button>
+      <button class="btn small secondary" id="bulk-limpar">Limpar seleção</button>
+    </div>` : '';
+
+  if(state.products.length===0){
+    el.innerHTML = toolbar + emptyStateHtml('Nenhum produto cadastrado', 'Clique em "Novo produto" para iniciar o fluxo com a compra e o cadastro no sistema.', false);
+  }else if(list.length===0){
+    el.innerHTML = toolbar + emptyStateHtml('Nada encontrado', 'Ajuste a busca ou os filtros acima.', false);
+  }else{
+    const allSelected = list.every(p=>state.selectedProdutos.has(p.id));
+    const rows = list.map(p=>{
+      const s = stageMeta(getStage(p), getOrigem(p));
+      const info = deadlineInfo(p);
+      const prazoCell = info
+        ? `<span class="badge" style="${info.statusClass==='atrasado'?'background:var(--red);color:#fff;border-color:var(--red);':(info.statusClass==='hoje'?'background:var(--yellow);color:#231900;border-color:var(--yellow);':'')}">${esc(info.label)}</span>`
+        : '<span class="badge hold">—</span>';
+      const dupBadge = dupIds.has(p.id) ? ' <span class="badge" style="background:var(--red);color:#fff;border-color:var(--red);" title="EAN também usado por outro produto">⚠ EAN dup.</span>' : '';
+      return `<tr data-id="${esc(p.id)}">
+        <td><input type="checkbox" class="prod-check" data-id="${esc(p.id)}" ${state.selectedProdutos.has(p.id)?'checked':''}></td>
+        <td><span class="badge hold" style="border-color:${s.color};color:${s.color}">${esc(s.label)}</span></td>
+        <td><strong>${esc(p.modelo||'(sem nome)')}</strong>${p.cor?`<div style="color:var(--muted);font-size:11.5px;">${esc(p.cor)}</div>`:''}</td>
+        <td>${esc(p.linha||'—')}<div style="color:var(--muted);font-size:11px;">${esc(ORIGEM_LABEL[getOrigem(p)])}</div></td>
+        <td class="mono">${p.sku?esc(p.sku):'—'}</td>
+        <td class="mono">${p.ean?esc(p.ean):'—'}${dupBadge}</td>
+        <td>${p.fotosDone?'<span class="badge ok">Finalizadas</span>':'<span class="badge pend">Pendente</span>'}</td>
+        <td>${p.liberado?'<span class="badge ok">Liberado</span>':'<span class="badge hold">—</span>'}</td>
+        <td>${prazoCell}</td>
+        <td><button class="btn small secondary" data-open="${esc(p.id)}">Abrir</button></td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = toolbar + bulkBar + `<div class="table-wrap"><table>
+      <thead><tr><th><input type="checkbox" id="prod-select-all" ${allSelected?'checked':''}></th><th>Etapa</th><th>Produto</th><th>Linha / fluxo</th><th>SKU</th><th>EAN</th><th>Fotos</th><th>Liberado</th><th>Prazo</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
+
+  document.getElementById('prod-search').addEventListener('input', (e)=>{ state.searchProdutos=e.target.value; renderProdutos(); });
+  document.getElementById('prod-linha').addEventListener('change', (e)=>{ state.filterLinhaProdutos=e.target.value; renderProdutos(); });
+  document.getElementById('prod-etapa').addEventListener('change', (e)=>{ state.filterStageProdutos=e.target.value; renderProdutos(); });
+  document.getElementById('prod-novo').addEventListener('click', ()=>{ createProduct({}).then(id=>openProductModal(id)); });
+  const dupBtn = document.getElementById('prod-dup-toggle');
+  if(dupBtn) dupBtn.addEventListener('click', ()=>{ state.filterDuplicadosProdutos=!state.filterDuplicadosProdutos; renderProdutos(); });
+  document.getElementById('prod-export').addEventListener('click', ()=>exportProdutosCSV(list));
+  el.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click', ()=>openProductModal(b.dataset.open)));
+  el.querySelectorAll('tbody tr').forEach(tr=>tr.addEventListener('click', (e)=>{ if(e.target.closest('button') || e.target.closest('input')) return; openProductModal(tr.dataset.id); }));
+
+  el.querySelectorAll('.prod-check').forEach(cb=>cb.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(cb.checked) state.selectedProdutos.add(cb.dataset.id); else state.selectedProdutos.delete(cb.dataset.id);
+    renderProdutos();
+  }));
+  const selAll = document.getElementById('prod-select-all');
+  if(selAll) selAll.addEventListener('click', ()=>{
+    if(selAll.checked) list.forEach(p=>state.selectedProdutos.add(p.id));
+    else list.forEach(p=>state.selectedProdutos.delete(p.id));
+    renderProdutos();
+  });
+
+  const bulkIds = ()=>Array.from(state.selectedProdutos);
+  const bulkCad = document.getElementById('bulk-cadastro');
+  if(bulkCad) bulkCad.addEventListener('click', async ()=>{
+    for(const id of bulkIds()) await saveProduct(id, {cadastroDone:true});
+    toast('Cadastro marcado como concluído para os selecionados.');
+  });
+  const bulkEt2 = document.getElementById('bulk-etapa2');
+  if(bulkEt2) bulkEt2.addEventListener('click', async ()=>{
+    for(const id of bulkIds()) await saveProduct(id, {etapa2Done:true});
+    toast('Etapa 2 marcada como concluída para os selecionados.');
+  });
+  const bulkFotos = document.getElementById('bulk-fotos');
+  if(bulkFotos) bulkFotos.addEventListener('click', async ()=>{
+    for(const id of bulkIds()) await saveProduct(id, {fotosDone:true});
+    toast('Fotos marcadas como concluídas — disponíveis para o comercial.');
+  });
+  const bulkDel = document.getElementById('bulk-excluir');
+  if(bulkDel) bulkDel.addEventListener('click', async ()=>{
+    const ids = bulkIds();
+    if(!confirm(`Excluir ${ids.length} produto(s) selecionado(s)? Essa ação não pode ser desfeita.`)) return;
+    for(const id of ids) await deleteProduct(id);
+    state.selectedProdutos.clear();
+    toast('Produtos excluídos.');
+    renderProdutos();
+  });
+  const bulkClear = document.getElementById('bulk-limpar');
+  if(bulkClear) bulkClear.addEventListener('click', ()=>{ state.selectedProdutos.clear(); renderProdutos(); });
+
+  if(focusedId){
+    const toFocus = document.getElementById(focusedId);
+    if(toFocus){
+      toFocus.focus();
+      if(selStart!=null && toFocus.setSelectionRange) toFocus.setSelectionRange(selStart, selStart);
+    }
+  }
+}
+
+/* ============================= NOTIFICAÇÕES ============================= */
+function renderNotificacoes(){
+  const el = document.getElementById('view-notificacoes');
+
+  const pillsHtml = `<div class="pill-select" id="notif-setor-filter">
+    ${SETORES.map(s=>`<button data-s="${s}" class="${state.filterSetorNotif===s?'active':''}">${s==='todos'?'Todos os setores':esc(s)}</button>`).join('')}
+  </div>`;
+
+  let pendentes = state.products
+    .filter(p=>getStage(p)!=='anuncios')
+    .map(p=>({p, stage: stageMeta(getStage(p), getOrigem(p)), info: deadlineInfo(p)}))
+    .filter(x=>x.stage && x.info);
+  if(state.filterSetorNotif!=='todos') pendentes = pendentes.filter(x=>x.stage.who===state.filterSetorNotif);
+  pendentes.sort((a,b)=> new Date(a.info.deadlineIso) - new Date(b.info.deadlineIso));
+
+  const rows = pendentes.map(({p,stage,info})=>{
+    const prazoCell = `<span class="badge" style="${info.statusClass==='atrasado'?'background:var(--red);color:#fff;border-color:var(--red);':(info.statusClass==='hoje'?'background:var(--yellow);color:#231900;border-color:var(--yellow);':'')}">${esc(info.label)}</span>`;
+    return `<tr data-id="${esc(p.id)}">
+      <td>${prazoCell}</td>
+      <td><strong>${esc(p.modelo||'(sem nome)')}</strong><div class="mono" style="color:var(--muted);font-size:11px;">${esc(p.sku||'sem SKU')}</div></td>
+      <td style="color:${stage.color}">${esc(stage.label)}</td>
+      <td>${esc(stage.who)}</td>
+      <td><button class="btn small secondary" data-open="${esc(p.id)}">Abrir</button></td>
+    </tr>`;
+  }).join('');
+
+  const tableHtml = pendentes.length
+    ? `<div class="table-wrap"><table>
+        <thead><tr><th style="width:130px;">Prazo</th><th>Produto</th><th>Etapa</th><th>Responsável</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`
+    : emptyStateHtml('Nenhuma pendência', 'Não há produtos aguardando esse setor no momento, ou tudo está dentro do prazo.', false);
+
+  const feedFiltrado = state.filterSetorNotif==='todos'
+    ? state.notifFeed
+    : state.notifFeed.filter(n=>n.setor===state.filterSetorNotif);
+
+  const feedHtml = feedFiltrado.length
+    ? `<div class="table-wrap" style="margin-top:8px;max-height:220px;"><table><tbody>
+        ${feedFiltrado.slice(0,20).map(n=>`<tr><td style="width:70px;color:var(--muted);font-size:11px;white-space:nowrap;">${new Date(n.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(n.texto)}</td></tr>`).join('')}
+      </tbody></table></div>`
+    : state.notifFeed.length
+      ? `<p style="color:var(--muted);font-size:12.5px;">Nenhum aviso para ${esc(state.filterSetorNotif)} nesta sessão ainda.</p>`
+      : `<p style="color:var(--muted);font-size:12.5px;">Nenhum aviso ainda nesta sessão — avisos aparecem aqui assim que um produto é cadastrado ou avança de etapa, enquanto o painel estiver aberto.</p>`;
+
+  el.innerHTML = `
+    <div class="gate-note">
+      Estes avisos funcionam para quem estiver com o painel aberto neste momento (em qualquer aba/dispositivo) — e, se "Ativar avisos" estiver ligado no topo, também aparecem como notificação do navegador. Não há integração com Slack, e-mail ou WhatsApp configurada aqui; a lista de pendências abaixo é o jeito confiável de qualquer setor conferir o que falta, mesmo sem estar olhando no momento exato em que o produto entrou.
+    </div>
+    <div class="toolbar">${pillsHtml}</div>
+    <h3 style="font-family:var(--font-display);font-size:14px;margin:4px 0 8px 0;">Pendências por prazo</h3>
+    ${tableHtml}
+    <h3 style="font-family:var(--font-display);font-size:14px;margin:22px 0 8px 0;">Avisos ao vivo desta sessão${state.filterSetorNotif!=='todos' ? ` — ${esc(state.filterSetorNotif)}` : ''}</h3>
+    ${feedHtml}
+  `;
+
+  el.querySelectorAll('#notif-setor-filter button').forEach(b=>b.addEventListener('click', ()=>{
+    state.filterSetorNotif = b.dataset.s;
+    state.meuSetor = b.dataset.s;
+    const sel = document.getElementById('meu-setor-select');
+    if(sel) sel.value = b.dataset.s;
+    renderNotificacoes();
+  }));
+  el.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click', ()=>openProductModal(b.dataset.open)));
+}
+
+/* ============================= ANÚNCIOS ============================= */
+function renderAnuncios(){
+  const el = document.getElementById('view-anuncios');
+  const active = document.activeElement;
+  const focusedId = active && active.id;
+  const selStart = (focusedId && active.selectionStart!=null) ? active.selectionStart : null;
+  const liberados = state.products.filter(p=>p.liberado);
+
+  if(state.products.length===0 || liberados.length===0){
+    el.innerHTML = emptyStateHtml(
+      liberados.length===0 && state.products.length>0 ? 'Nenhum produto liberado ainda' : 'Nenhum produto cadastrado',
+      'Assim que o Marketing concluir os materiais, o produto aparece aqui para o comercial gerenciar os anúncios.',
+      false
+    );
+    return;
+  }
+
+  // summary per channel
+  const summary = state.canais.map(c=>{
+    const total = liberados.length;
+    const anunciado = liberados.filter(p=>(p.canais&&p.canais[c])==='anunciado').length;
+    return {canal:c, total, anunciado, pct: total? Math.round(anunciado/total*100):0};
+  });
+
+  function riscoNivel(pct){
+    if(pct>=15) return 'alto';
+    if(pct>=5) return 'medio';
+    return 'baixo';
+  }
+
+  let list = liberados.slice();
+  if(state.filterLinhaAnuncios!=='todas') list = list.filter(p=>p.linha===state.filterLinhaAnuncios);
+  if(state.searchAnuncios.trim()){
+    const q = state.searchAnuncios.trim().toLowerCase();
+    list = list.filter(p=>(p.modelo||'').toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q) || (p.ean||'').toLowerCase().includes(q));
+  }
+  if(state.filterCanalFaltando){
+    const st = state.filterStatusAnuncios;
+    list = list.filter(p=>{
+      const cur = (p.canais && p.canais[state.filterCanalFaltando]) || '';
+      if(!st) return true; // canal escolhido mas sem status específico: não filtra por status
+      if(st==='faltando') return cur!=='anunciado';
+      if(st==='vazio') return cur==='';
+      return cur===st;
+    });
+  }
+  if(state.filterRiscoAnuncios!=='todos'){
+    list = list.filter(p=> riscoNivel(missingPotential(p).pct)===state.filterRiscoAnuncios);
+  }
+  if(state.filterVendedorAnuncios){
+    list = state.filterVendedorAnuncios==='__sem__'
+      ? list.filter(p=>!p.vendedor)
+      : list.filter(p=>p.vendedor===state.filterVendedorAnuncios);
+  }
+  list.sort((a,b)=> missingPotential(b).pct - missingPotential(a).pct);
+
+  const vendedoresExistentes = Array.from(new Set(liberados.map(p=>p.vendedor).filter(Boolean))).sort();
+
+  const summaryHtml = `<div class="stage-strip">${summary.map(s=>`
+    <div class="stage-chip" style="border-left-color:var(--green)">
+      <div class="count">${s.anunciado}/${s.total}</div>
+      <div class="label">${esc(s.canal)}</div>
+      <div class="who">${s.total-s.anunciado} faltando</div>
+    </div>`).join('')}</div>`;
+
+  const legendHtml = `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--muted);margin:-6px 0 14px 0;padding:8px 12px;background:var(--surface-2);border-radius:var(--radius-sm);">
+    <strong style="color:var(--ink);">Legenda dos canais:</strong>
+    <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" style="padding:1px 7px;">•</span> Não iniciado</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="anunciar" style="padding:1px 7px;">•</span> Anunciar (na fila)</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="em_andamento" style="padding:1px 7px;">•</span> Em andamento</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span class="chan-btn" data-s="anunciado" style="padding:1px 7px;">•</span> Anunciado (publicado)</span>
+    <span>Clique numa pílula para avançar o status.</span>
+  </div>`;
+
+  const canalEscolhido = !!state.filterCanalFaltando;
+  const toolbar = `
+    <div class="toolbar">
+      <input type="search" class="grow" id="anun-search" placeholder="Buscar por modelo, SKU ou EAN…" value="${esc(state.searchAnuncios)}">
+      <select id="anun-linha">
+        <option value="todas" ${state.filterLinhaAnuncios==='todas'?'selected':''}>Todas as linhas</option>
+        ${LINHAS.map(l=>`<option value="${l}" ${state.filterLinhaAnuncios===l?'selected':''}>${l}</option>`).join('')}
+      </select>
+      <select id="anun-canal">
+        <option value="">Todos os canais</option>
+        ${state.canais.map(c=>`<option value="${esc(c)}" ${state.filterCanalFaltando===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <select id="anun-status" ${canalEscolhido?'':'disabled title="Escolha um canal específico para filtrar por status"'}>
+        <option value="" ${state.filterStatusAnuncios===''?'selected':''}>Qualquer status</option>
+        <option value="faltando" ${state.filterStatusAnuncios==='faltando'?'selected':''}>Faltando (não anunciado)</option>
+        <option value="" data-sep="1" disabled>──────────</option>
+        <option value="vazio" ${state.filterStatusAnuncios==='vazio'?'selected':''}>Não iniciado</option>
+        <option value="anunciar" ${state.filterStatusAnuncios==='anunciar'?'selected':''}>Anunciar (na fila)</option>
+        <option value="em_andamento" ${state.filterStatusAnuncios==='em_andamento'?'selected':''}>Em andamento</option>
+        <option value="anunciado" ${state.filterStatusAnuncios==='anunciado'?'selected':''}>Anunciado</option>
+      </select>
+      <select id="anun-vendedor">
+        <option value="" ${state.filterVendedorAnuncios===''?'selected':''}>Todos os vendedores</option>
+        <option value="__sem__" ${state.filterVendedorAnuncios==='__sem__'?'selected':''}>Sem vendedor atribuído</option>
+        ${vendedoresExistentes.map(v=>`<option value="${esc(v)}" ${state.filterVendedorAnuncios===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select>
+      <button class="btn small secondary" id="anun-limpar">Limpar filtros</button>
+    </div>
+    <div class="toolbar" style="margin-top:-8px;">
+      <input type="text" id="anun-meu-vendedor" placeholder="Seu nome (vendedor)…" value="${esc(state.meuVendedor)}" style="max-width:220px;">
+      <button class="btn small ${state.filterVendedorAnuncios && state.filterVendedorAnuncios===state.meuVendedor ? '' : 'secondary'}" id="anun-so-meus">★ Meus anúncios</button>
+      <span style="font-size:11.5px;color:var(--muted);">Preencha seu nome uma vez — fica salvo neste navegador. Depois é só clicar em "Atribuir a mim" em cada produto que você anuncia.</span>
+    </div>
+    <div class="pill-select" id="anun-risco-filter" style="margin:8px 0 14px 0;">
+      ${[['todos','Todos os riscos'],['alto','⚠ Alto risco (≥15%)'],['medio','Risco médio (5–15%)'],['baixo','Baixo risco (<5%)']].map(([v,label])=>
+        `<button data-r="${v}" class="${state.filterRiscoAnuncios===v?'active':''}">${label}</button>`
+      ).join('')}
+    </div>`;
+
+  const rows = list.map(p=>{
+    const canaisHtml = state.canais.map(c=>{
+      const s = (p.canais && p.canais[c]) || '';
+      return `<button class="chan-btn" data-s="${s}" data-id="${esc(p.id)}" data-canal="${esc(c)}" title="${esc(c)}: ${CHAN_LABEL[s]}">${esc(c)}</button>`;
+    }).join('');
+    const risco = missingPotential(p);
+    const riscoHtml = risco.pct > 0.05
+      ? `<div style="font-size:11px;color:var(--yellow-ink);margin-top:5px;" title="Faltando em: ${esc(risco.canais.join(', '))}">⚠ ~${risco.pct.toFixed(1)}% do potencial de vendas ainda fora do ar</div>`
+      : `<div style="font-size:11px;color:var(--green-ink);margin-top:5px;">✓ Anunciado em todos os canais com peso relevante</div>`;
+    const souEu = p.vendedor && p.vendedor===state.meuVendedor;
+    const vendedorHtml = `<div style="margin-top:6px;font-size:11px;display:flex;align-items:center;gap:6px;">
+      ${p.vendedor ? `<span class="badge ok" style="background:var(--blue);border-color:var(--blue);">👤 ${esc(p.vendedor)}</span>` : '<span class="badge hold">Sem vendedor</span>'}
+      <button class="btn small secondary" data-assign="${esc(p.id)}" style="padding:2px 8px;font-size:10.5px;">${souEu ? 'Remover atribuição' : 'Atribuir a mim'}</button>
+    </div>`;
+    return `<tr>
+      <td><strong>${esc(p.modelo||'(sem nome)')}</strong>${p.cor?`<div style="color:var(--muted);font-size:11.5px;">${esc(p.cor)}</div>`:''}<div class="mono" style="color:var(--muted);font-size:11px;">${esc(p.sku||'')} · ${esc(p.linha||'')}</div>${riscoHtml}${vendedorHtml}</td>
+      <td><div class="chan-grid">${canaisHtml}</div></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = summaryHtml + legendHtml + toolbar + `<p style="color:var(--muted);font-size:11.5px;margin:0 0 14px 0;">Mostrando ${list.length} de ${liberados.length} produtos liberados. O aviso de potencial de vendas usa a distribuição média de faturamento por canal (Mercado Livre ~80%, Shopee ~11%, Amazon ~6,3%, TikTok Shop ~1,8%, Magalu ~0,6%, Site ~0,3%).</p>` + (list.length===0
+    ? emptyStateHtml('Nada encontrado', 'Ajuste a busca ou os filtros acima.', false)
+    : `<div class="table-wrap"><table>
+        <thead><tr><th style="width:220px;">Produto</th><th>Canais (clique para avançar o status)</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`);
+
+  document.getElementById('anun-search').addEventListener('input', (e)=>{ state.searchAnuncios=e.target.value; renderAnuncios(); });
+  document.getElementById('anun-linha').addEventListener('change', (e)=>{ state.filterLinhaAnuncios=e.target.value; renderAnuncios(); });
+  document.getElementById('anun-canal').addEventListener('change', (e)=>{ state.filterCanalFaltando=e.target.value; if(!e.target.value) state.filterStatusAnuncios=''; renderAnuncios(); });
+  document.getElementById('anun-status').addEventListener('change', (e)=>{ state.filterStatusAnuncios=e.target.value; renderAnuncios(); });
+  document.getElementById('anun-vendedor').addEventListener('change', (e)=>{ state.filterVendedorAnuncios=e.target.value; renderAnuncios(); });
+  document.getElementById('anun-limpar').addEventListener('click', ()=>{
+    state.searchAnuncios=''; state.filterLinhaAnuncios='todas'; state.filterCanalFaltando=''; state.filterStatusAnuncios=''; state.filterRiscoAnuncios='todos'; state.filterVendedorAnuncios='';
+    renderAnuncios();
+  });
+  document.getElementById('anun-meu-vendedor').addEventListener('input', (e)=>{ state.meuVendedor=e.target.value; prefsSet('vendedor', state.meuVendedor); });
+  document.getElementById('anun-so-meus').addEventListener('click', ()=>{
+    if(!state.meuVendedor.trim()){ toast('Preencha seu nome no campo "Seu nome (vendedor)" primeiro.'); document.getElementById('anun-meu-vendedor').focus(); return; }
+    state.filterVendedorAnuncios = (state.filterVendedorAnuncios===state.meuVendedor) ? '' : state.meuVendedor;
+    renderAnuncios();
+  });
+  el.querySelectorAll('#anun-risco-filter button').forEach(b=>b.addEventListener('click', ()=>{ state.filterRiscoAnuncios=b.dataset.r; renderAnuncios(); }));
+  el.querySelectorAll('[data-assign]').forEach(b=>b.addEventListener('click', ()=>{
+    if(!state.meuVendedor.trim()){ toast('Preencha seu nome no campo "Seu nome (vendedor)" primeiro.'); document.getElementById('anun-meu-vendedor').focus(); return; }
+    const p = state.products.find(x=>x.id===b.dataset.assign);
+    if(!p) return;
+    const novo = (p.vendedor===state.meuVendedor) ? '' : state.meuVendedor;
+    saveProduct(p.id, {vendedor: novo});
+  }));
+  el.querySelectorAll('.chan-btn').forEach(b=>b.addEventListener('click', ()=>{
+    const p = state.products.find(x=>x.id===b.dataset.id);
+    if(!p) return;
+    const canal = b.dataset.canal;
+    const cur = (p.canais && p.canais[canal]) || '';
+    const next = CHAN_CYCLE[(CHAN_CYCLE.indexOf(cur)+1) % CHAN_CYCLE.length];
+    const canais = Object.assign({}, p.canais||{}, {[canal]: next});
+    saveProduct(p.id, {canais});
+  }));
+
+  if(focusedId){
+    const toFocus = document.getElementById(focusedId);
+    if(toFocus){
+      toFocus.focus();
+      if(selStart!=null && toFocus.setSelectionRange) toFocus.setSelectionRange(selStart, selStart);
+    }
+  }
+}
+
+/* ============================= IMPORTAR ============================= */
+function renderImportar(){
+  const el = document.getElementById('view-importar');
+  el.innerHTML = `
+    <div class="import-grid">
+      <div>
+        <div class="field">
+          <label>Cole aqui as linhas da planilha (separadas por TAB ou vírgula)</label>
+          <textarea id="import-text" rows="12" style="width:100%;" placeholder="linha, modelo, cor, sku, ean"></textarea>
+        </div>
+        <div class="field" style="margin-bottom:12px;">
+          <label>Linha padrão (se a coluna "linha" não vier preenchida)</label>
+          <select id="import-linha-padrao">${LINHAS.map(l=>`<option value="${l}">${l}</option>`).join('')}</select>
+        </div>
+        <div class="field">
+          <label>Primeira linha é cabeçalho?</label>
+          <select id="import-tem-cabecalho"><option value="sim">Sim</option><option value="nao">Não</option></select>
+        </div>
+        <button class="btn" id="import-run">Importar produtos</button>
+        <div id="import-result" style="margin-top:12px;font-size:12.5px;color:var(--muted);"></div>
+      </div>
+      <div>
+        <div class="gate-note">
+          <strong>Como formatar:</strong> uma linha por produto. Ordem esperada das colunas: <span class="mono">linha, modelo, cor, sku, ean</span>.
+          O fluxo (fabricação própria ou fornecedor) é determinado automaticamente pela Linha — não precisa informar.
+          Cabeçalho é opcional — se a primeira linha tiver textos como "modelo" ou "sku", ela é ignorada automaticamente.
+        </div>
+        <label style="margin-bottom:6px;display:block;">Exemplo de formato aceito</label>
+        <div class="sample">linha	modelo	cor	sku	ean
+Bravur	TAPETE BRAVUR FIAT ARGO	PRETO	CP0002	7899960000021
+Vélon	TAPETE VÉLON BANDEJA 5P TORO 2016	—	VE006	7901014000015</div>
+      </div>
+    </div>`;
+
+  document.getElementById('import-run').addEventListener('click', runImport);
+}
+
+function splitLine(line){
+  if(line.indexOf('\t')>=0) return line.split('\t');
+  return line.split(',');
+}
+
+async function runImport(){
+  const raw = document.getElementById('import-text').value;
+  const linhaPadrao = document.getElementById('import-linha-padrao').value;
+  const temCabecalho = document.getElementById('import-tem-cabecalho').value==='sim';
+  const resultEl = document.getElementById('import-result');
+  const lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
+  if(lines.length===0){ resultEl.textContent = 'Cole ao menos uma linha para importar.'; return; }
+
+  let dataLines = lines;
+  if(temCabecalho) dataLines = lines.slice(1);
+
+  // SKUs e EANs já existentes (banco + o que já foi criado neste mesmo lote)
+  const skusExistentes = new Set(state.products.map(p=>(p.sku||'').trim().toLowerCase()).filter(Boolean));
+  const eansExistentes = new Set(state.products.map(p=>(p.ean||'').trim().toLowerCase()).filter(Boolean));
+
+  let created = 0, skipped = 0, duplicados = 0;
+  const duplicadosExemplos = [];
+  for(const line of dataLines){
+    const cols = splitLine(line).map(c=>c.trim());
+    // aceita: [linha, modelo, cor, sku, ean] OU [modelo, cor, sku, ean] se só 4 colunas
+    let linha, modelo, cor, sku, ean;
+    if(cols.length>=5){
+      [linha, modelo, cor, sku, ean] = cols;
+    }else if(cols.length===4){
+      [modelo, cor, sku, ean] = cols; linha = linhaPadrao;
+    }else if(cols.length===3){
+      [modelo, sku, ean] = cols; cor=''; linha = linhaPadrao;
+    }else{
+      skipped++; continue;
+    }
+    if(!modelo){ skipped++; continue; }
+    if(!linha || !LINHAS.includes(linha)) linha = linhaPadrao;
+
+    const skuNorm = (sku||'').trim().toLowerCase();
+    const eanNorm = (ean||'').trim().toLowerCase();
+    const jaExiste = (skuNorm && skusExistentes.has(skuNorm)) || (eanNorm && eansExistentes.has(eanNorm));
+    if(jaExiste){
+      duplicados++;
+      if(duplicadosExemplos.length<5) duplicadosExemplos.push(sku||ean||modelo);
+      continue;
+    }
+
+    await createProduct({
+      linha, modelo, cor: cor||'', sku: sku||'', ean: ean||'',
+      cadastroDone: !!sku, etapa2Done:false, fotosDone:false, liberado:false
+    });
+    created++;
+    if(skuNorm) skusExistentes.add(skuNorm);
+    if(eanNorm) eansExistentes.add(eanNorm);
+  }
+  let msg = `${created} produto(s) importado(s)`;
+  if(duplicados) msg += `, ${duplicados} ignorado(s) por já existir SKU/EAN igual (ex: ${duplicadosExemplos.join(', ')})`;
+  if(skipped) msg += `, ${skipped} linha(s) ignorada(s) por formato`;
+  resultEl.textContent = msg + '.';
+  document.getElementById('import-text').value='';
+  toast(`Importação concluída: ${created} produto(s).`);
+}
+
+/* ============================= CONFIG (canais) ============================= */
+function renderConfig(){
+  const el = document.getElementById('view-config');
+  el.innerHTML = `
+    <div style="max-width:560px;">
+      <div class="field">
+        <label>Canais de venda usados na Gestão de anúncios (um por linha)</label>
+        <textarea id="canais-text" rows="10" style="width:100%;">${state.canais.map(esc).join('\n')}</textarea>
+      </div>
+      <button class="btn" id="canais-save">Salvar canais</button>
+      <p style="color:var(--muted);font-size:12px;margin-top:10px;">Alterar essa lista não apaga o histórico já registrado em produtos — canais removidos daqui deixam de aparecer na gestão de anúncios, mas os dados continuam salvos.</p>
+
+      <hr style="border:none;border-top:1px solid var(--line);margin:26px 0;">
+
+      <label style="display:block;margin-bottom:10px;">Prazo (em dias) para cada etapa — contado a partir do momento em que o produto entra nela</label>
+      ${STAGE_KEYS.filter(k=>k!=='anuncios').map(k=>genericStageMeta(k)).map(s=>`
+        <div class="row" style="align-items:center;margin-bottom:10px;">
+          <div style="flex:2;font-size:13px;">${esc(s.label)} <span style="color:var(--muted);">(${esc(s.who)})</span></div>
+          <input type="text" inputmode="numeric" style="flex:1;" data-prazo="${s.key}" value="${esc(state.prazos[s.key] ?? DEFAULT_PRAZOS[s.key])}">
+        </div>`).join('')}
+      <button class="btn" id="prazos-save">Salvar prazos</button>
+      <p style="color:var(--muted);font-size:12px;margin-top:10px;">Esses prazos alimentam a aba Notificações e os selos de prazo no Kanban e em Produtos.</p>
+    </div>`;
+  document.getElementById('canais-save').addEventListener('click', ()=>{
+    const list = document.getElementById('canais-text').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(list.length===0){ toast('Informe ao menos um canal.'); return; }
+    saveCanais(list);
+    toast('Canais atualizados.');
+  });
+  document.getElementById('prazos-save').addEventListener('click', ()=>{
+    const prazos = {};
+    el.querySelectorAll('[data-prazo]').forEach(inp=>{
+      const n = parseInt(inp.value,10);
+      prazos[inp.dataset.prazo] = (isNaN(n) || n<1) ? 1 : n;
+    });
+    savePrazos(prazos);
+    toast('Prazos atualizados.');
+  });
+}
+
+/* ============================= MODAL: FICHA DO PRODUTO ============================= */
+function openProductModal(id){
+  state.modalProductId = id;
+  renderModal();
+}
+function closeModal(){
+  state.modalProductId = null;
+  document.getElementById('modal-root').innerHTML = '';
+}
+
+function renderModal(){
+  const root = document.getElementById('modal-root');
+  const p = state.products.find(x=>x.id===state.modalProductId);
+  if(!p){ root.innerHTML=''; return; }
+
+  const origem = getOrigem(p);
+  const curStageKey = getStage(p);
+  const curIdx = stageIndex(curStageKey);
+  const track = STAGE_KEYS.map((k,i)=>`<div class="seg ${i<curIdx?'done':(i===curIdx?'now':'')}"></div>`).join('');
+  const curMeta = stageMeta(curStageKey, origem);
+  const et2Meta = stageMeta('etapa2', origem);
+  const et2Done = (p.etapa2Done!=null) ? !!p.etapa2Done : !!p.eanDone;
+
+  root.innerHTML = `
+  <div class="overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2>${esc(p.modelo || 'Novo produto')}</h2>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Etapa atual: ${esc(curMeta.label)} · responsável: ${esc(curMeta.who)}</div>
+        </div>
+        <button class="close" id="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="stage-track">${track}</div>
+
+        <div class="row">
+          <div class="field">
+            <label>Linha</label>
+            <select id="f-linha">${LINHAS.map(l=>`<option value="${l}" ${p.linha===l?'selected':''}>${l}</option>`).join('')}</select>
+          </div>
+          <div class="field">
+            <label>Cor / variação</label>
+            <input type="text" id="f-cor" value="${esc(p.cor)}" placeholder="ex: PRETO">
+          </div>
+        </div>
+        <div class="field">
+          <label>Modelo (padronize como consta na NF)</label>
+          <input type="text" id="f-modelo" value="${esc(p.modelo)}" placeholder="ex: TAPETE LANZI BRAVUR TORO 2016...">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>SKU</label>
+            <input type="text" class="mono" id="f-sku" value="${esc(p.sku)}" placeholder="ex: CP0001">
+          </div>
+          <div class="field">
+            <label>EAN (GS1)</label>
+            <input type="text" class="mono" id="f-ean" value="${esc(p.ean)}" placeholder="ex: 7899960000021">
+          </div>
+        </div>
+        <div class="field">
+          <label>Fluxo deste produto</label>
+          <div style="font-size:13px;padding:8px 0;color:var(--muted);">${esc(ORIGEM_LABEL[origem])} <span style="color:var(--ink);">— determinado pela Linha (${esc(p.linha)})</span></div>
+        </div>
+        ${origem==='fornecedor' ? `
+        <div class="field">
+          <label>Previsão de chegada (opcional)</label>
+          <input type="text" id="f-previsao" value="${esc(p.previsaoChegada||'')}" placeholder="ex: 25/09">
+        </div>` : ''}
+
+        <div class="gate-note">Cada etapa concluída libera automaticamente a próxima. Assim que o Marketing terminar, o produto já aparece para o Comercial em Anúncios.</div>
+
+        <div class="checkline">
+          <span class="ok-mark ${p.cadastroDone && p.sku ? 'on':''}">✓</span>
+          <span class="txt">${esc(stageMeta('cadastro',origem).label)} <span class="who">(${esc(stageMeta('cadastro',origem).who)})</span></span>
+          <button class="btn small ${p.cadastroDone?'secondary':''}" id="toggle-cadastro">${p.cadastroDone?'Desfazer':'Concluir'}</button>
+        </div>
+        <div class="checkline">
+          <span class="ok-mark ${et2Done?'on':''}">✓</span>
+          <span class="txt">${esc(et2Meta.label)} <span class="who">(${esc(et2Meta.who)})</span></span>
+          <button class="btn small ${et2Done?'secondary':''}" id="toggle-etapa2">${et2Done?'Desfazer':'Concluir'}</button>
+        </div>
+        <div class="checkline">
+          <span class="ok-mark ${p.fotosDone?'on':''}">✓</span>
+          <span class="txt">Fotos, banners e materiais prontos <span class="who">(Marketing)</span></span>
+          <button class="btn small ${p.fotosDone?'secondary':''}" id="toggle-fotos">${p.fotosDone?'Desfazer':'Concluir'}</button>
+        </div>
+        <div class="checkline">
+          <span class="ok-mark ${p.liberado?'on':''}">✓</span>
+          <span class="txt">Disponível para o Comercial anunciar <span class="who">(automático)</span></span>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn danger" id="modal-delete">Excluir produto</button>
+        <button class="btn secondary" id="modal-cancel">Fechar</button>
+        <button class="btn" id="modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('modal-overlay').addEventListener('click', (e)=>{ if(e.target.id==='modal-overlay') closeModal(); });
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+
+  document.getElementById('modal-delete').addEventListener('click', ()=>{
+    if(confirm('Excluir este produto? Essa ação não pode ser desfeita.')){
+      deleteProduct(p.id); closeModal();
+    }
+  });
+
+  function readForm(){
+    const previsaoEl = document.getElementById('f-previsao');
+    return {
+      linha: document.getElementById('f-linha').value,
+      cor: document.getElementById('f-cor').value.trim(),
+      modelo: document.getElementById('f-modelo').value.trim(),
+      sku: document.getElementById('f-sku').value.trim(),
+      ean: document.getElementById('f-ean').value.trim(),
+      previsaoChegada: previsaoEl ? previsaoEl.value.trim() : (p.previsaoChegada||''),
+    };
+  }
+
+  document.getElementById('modal-save').addEventListener('click', async ()=>{
+    const f = readForm();
+    const warn = findDuplicateWarning(f, p.id);
+    await saveProduct(p.id, f);
+    toast(warn || 'Produto salvo.');
+    renderModal();
+  });
+  document.getElementById('f-linha').addEventListener('change', async ()=>{
+    await saveProduct(p.id, readForm());
+    renderModal();
+  });
+
+  document.getElementById('toggle-cadastro').addEventListener('click', async ()=>{
+    const f = readForm();
+    if(!p.cadastroDone && !f.sku){ toast('Informe o SKU antes de concluir o cadastro.'); return; }
+    const warn = !p.cadastroDone ? findDuplicateWarning(f, p.id) : null;
+    await saveProduct(p.id, Object.assign({}, f, {cadastroDone: !p.cadastroDone}));
+    if(warn) toast(warn);
+    renderModal();
+  });
+  document.getElementById('toggle-etapa2').addEventListener('click', async ()=>{
+    const f = readForm();
+    await saveProduct(p.id, Object.assign({}, f, {etapa2Done: !et2Done}));
+    renderModal();
+  });
+  document.getElementById('toggle-fotos').addEventListener('click', async ()=>{
+    await saveProduct(p.id, {fotosDone: !p.fotosDone});
+    if(!p.fotosDone) toast('Produto disponível para o Comercial anunciar.');
+    renderModal();
+  });
+}
+
+/* ============================= BOOT ============================= */
+initTopbarControls();
+switchView('kanban');
+initSupabase();
+
+})();
+</script>
+</body>
+</html>
