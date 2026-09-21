@@ -866,13 +866,28 @@ async function initSupabase(){
   }catch(e){ sb = null; }
   if(!sb){ state.useDb = false; updateConnBadge(); return; }
 
+  async function fetchAllProducts(){
+    // O Supabase limita cada resposta a um número máximo de linhas (geralmente 1000),
+    // então buscamos em páginas até não vir mais nada, para nunca perder produtos.
+    const PAGE = 1000;
+    let all = [];
+    let offset = 0;
+    while(true){
+      const {data, error} = await sb.from('products').select('*').range(offset, offset+PAGE-1);
+      if(error) throw error;
+      all = all.concat(data||[]);
+      if(!data || data.length < PAGE) break;
+      offset += PAGE;
+    }
+    return all;
+  }
+
   async function fetchAll(){
     try{
-      const [{data: rows, error: pErr}, {data: cfgRows, error: cErr}] = await Promise.all([
-        sb.from('products').select('*').range(0, 9999), // sem isso, o Supabase corta em 1000 linhas por padrão
+      const [rows, {data: cfgRows, error: cErr}] = await Promise.all([
+        fetchAllProducts(),
         sb.from('config').select('*'),
       ]);
-      if(pErr) throw pErr;
       if(cErr) throw cErr;
 
       const newProducts = (rows||[]).map(rowToProduct);
