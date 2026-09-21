@@ -1544,6 +1544,17 @@ function splitLine(line){
   return line.split(',');
 }
 
+function linhaFromSku(sku){
+  // Detecta a sub-linha da Bravur pelo prefixo do SKU, independente do que vier na
+  // coluna "linha" da planilha ou da linha padrão escolhida na tela — evita que produtos
+  // caiam na linha errada por causa de um texto que não bateu exatamente.
+  const s = (sku||'').trim().toUpperCase();
+  if(s.startsWith('CP-T') || s.startsWith('CPT')) return 'Traseira Bravur';
+  if(s.startsWith('PM')) return 'Porta Malas Bravur';
+  if(s.startsWith('EV')) return 'Evox';
+  return null;
+}
+
 async function runImport(){
   const raw = document.getElementById('import-text').value;
   const linhaPadrao = document.getElementById('import-linha-padrao').value;
@@ -1576,6 +1587,8 @@ async function runImport(){
     }
     if(!modelo){ skipped++; continue; }
     if(!linha || !LINHAS.includes(linha)) linha = linhaPadrao;
+    const linhaDetectada = linhaFromSku(sku);
+    if(linhaDetectada) linha = linhaDetectada;
 
     const skuNorm = (sku||'').trim().toLowerCase();
     const eanNorm = (ean||'').trim().toLowerCase();
