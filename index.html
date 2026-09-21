@@ -89,6 +89,10 @@
     padding:0 20px 18px 20px;
     border-bottom:1px solid var(--line);
     margin-bottom:12px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:8px;
   }
   .rail-brand small{
     display:block;
@@ -130,6 +134,20 @@
   .rail-btn.active{background:var(--blue);color:#fff;font-weight:600;}
   .rail-btn.active .n{background:rgba(255,255,255,.22);color:#fff;border-color:transparent;}
   .rail-foot{margin-top:auto;padding:14px 20px 0 20px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;}
+  .rail-collapse-btn{
+    display:flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:50%;
+    background:var(--surface);border:1px solid var(--line);color:var(--muted);
+    font-size:12px;padding:0;cursor:pointer;flex:0 0 auto;
+  }
+  .rail-collapse-btn:hover{background:var(--line);color:var(--ink);}
+  .rail.collapsed{width:64px;flex-basis:64px;}
+  .rail.collapsed .rail-brand-text{display:none;}
+  .rail.collapsed .rail-brand{padding:0 10px 18px 10px;display:flex;justify-content:center;}
+  .rail.collapsed .rail-btn .label{display:none;}
+  .rail.collapsed .rail-btn .n{display:none;}
+  .rail.collapsed .rail-btn{justify-content:center;padding:9px;}
+  .rail.collapsed .rail-foot{display:none;}
 
   /* ---------- main ---------- */
   main{flex:1;min-width:0;display:flex;flex-direction:column;}
@@ -352,8 +370,11 @@
   Abra o arquivo <code>index.html</code>, encontre as linhas <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> perto do topo do <code>&lt;script&gt;</code>, e cole a URL e a chave pública (anon) do seu projeto Supabase (Project Settings → API). O app está funcionando em modo local, só neste navegador, até isso ser preenchido.
 </div>
 <div id="app">
-  <aside class="rail">
-    <div class="rail-brand">PAINEL DE PRODUÇÃO<small>Lanzi Autoparts · MS Indústria</small></div>
+  <aside class="rail" id="rail">
+    <div class="rail-brand">
+      <span class="rail-brand-text">PAINEL DE PRODUÇÃO<small>Lanzi Autoparts · MS Indústria</small></span>
+      <button class="rail-collapse-btn" id="rail-collapse-btn" title="Recolher/expandir menu">«</button>
+    </div>
     <nav class="rail-nav" id="nav"></nav>
     <div class="rail-foot">Fluxo: Cadastro → EAN/GS1 → Fotos → Liberação → Anúncios</div>
   </aside>
@@ -638,6 +659,16 @@ function initTopbarControls(){
   state.meuSetor = prefsGet('setor', state.meuSetor);
   state.filterSetorNotif = state.meuSetor;
   state.meuVendedor = prefsGet('vendedor', state.meuVendedor);
+
+  const rail = document.getElementById('rail');
+  const collapseBtn = document.getElementById('rail-collapse-btn');
+  const railCollapsed = prefsGet('rail_collapsed', '0')==='1';
+  if(railCollapsed){ rail.classList.add('collapsed'); collapseBtn.textContent = '»'; }
+  collapseBtn.addEventListener('click', ()=>{
+    const nowCollapsed = rail.classList.toggle('collapsed');
+    collapseBtn.textContent = nowCollapsed ? '»' : '«';
+    prefsSet('rail_collapsed', nowCollapsed ? '1' : '0');
+  });
 
   document.documentElement.setAttribute('data-theme', state.theme);
   const themeBtn = document.getElementById('theme-toggle-btn');
