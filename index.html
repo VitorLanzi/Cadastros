@@ -1131,9 +1131,48 @@ function renderKanban(){
     </div>`;
   }).join('');
 
+  const totalGeral = state.products.length;
+  const completosGeral = state.products.filter(p=>p.liberado).length;
+  const pctGeral = totalGeral? Math.round(completosGeral/totalGeral*100) : 0;
+  const analiseLinhas = LINHAS.map(l=>{
+    const items = state.products.filter(p=>p.linha===l);
+    const total = items.length;
+    const completos = items.filter(p=>p.liberado).length;
+    return {linha:l, total, completos, pct: total? Math.round(completos/total*100) : 0};
+  }).filter(x=>x.total>0);
+
+  const progressoHtml = totalGeral ? `
+    <div class="stage-chip" style="border-left-color:var(--green);margin-bottom:16px;">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <div class="count" style="font-size:32px;">${pctGeral}%</div>
+        <div style="font-size:12.5px;color:var(--muted);">cadastros completos (liberados para o Comercial) — ${completosGeral} de ${totalGeral} produtos. <strong style="color:var(--ink);">${totalGeral-completosGeral} ainda incompletos.</strong></div>
+      </div>
+      <div style="background:var(--surface);border-radius:999px;height:8px;margin-top:10px;overflow:hidden;">
+        <div style="background:var(--green);height:100%;width:${pctGeral}%;"></div>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-bottom:22px;max-height:none;">
+      <table>
+        <thead><tr><th>Linha</th><th>Completos</th><th>Incompletos</th><th>% completo</th></tr></thead>
+        <tbody>
+          ${analiseLinhas.map(x=>`<tr>
+            <td>${esc(x.linha)}</td>
+            <td>${x.completos}</td>
+            <td>${x.total-x.completos}</td>
+            <td><div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;background:var(--surface-2);border-radius:999px;height:6px;overflow:hidden;max-width:120px;">
+                <div style="background:${x.pct>=70?'var(--green)':x.pct>=40?'var(--yellow)':'var(--red)'};height:100%;width:${x.pct}%;"></div>
+              </div>
+              <span class="mono" style="font-size:11px;">${x.pct}%</span>
+            </div></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '';
+
   el.innerHTML = (products.length===0 && state.products.length===0)
     ? emptyStateHtml('Nenhum produto cadastrado ainda', 'Cadastre o primeiro produto ou importe os dados da planilha atual.', true)
-    : `${stripHtml?`<div class="stage-strip">${stripHtml}</div>`:''}${filterHtml}<div class="kanban">${colsHtml}</div>`;
+    : `${progressoHtml}${stripHtml?`<div class="stage-strip">${stripHtml}</div>`:''}${filterHtml}<div class="kanban">${colsHtml}</div>`;
 
   if(state.products.length===0){
     const b1 = document.getElementById('empty-add'); if(b1) b1.addEventListener('click', ()=>{ createProduct({}).then(id=>openProductModal(id)); });
