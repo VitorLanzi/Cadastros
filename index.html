@@ -549,6 +549,7 @@ const state = {
   modalProductId: null,
   theme: 'light',
   selectedProdutos: new Set(),
+  modalStale: false,
   filterDuplicadosProdutos: false,
   meuVendedor: '',
   filterVendedorAnuncios: '',
@@ -749,6 +750,19 @@ function renderAll(){
   renderNav();
   updateConnBadge();
   renderCurrentView();
+  updateModalStaleBanner();
+}
+function updateModalStaleBanner(){
+  const el = document.getElementById('modal-stale-banner');
+  if(!el) return;
+  el.innerHTML = state.modalStale
+    ? `<div class="gate-note" style="background:var(--yellow);color:#231900;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+         <span>⚠ Este produto foi atualizado por outra pessoa enquanto você olhava.</span>
+         <button class="btn small secondary" id="modal-refresh-btn" style="flex:0 0 auto;">Atualizar visualização</button>
+       </div>`
+    : '';
+  const btn = document.getElementById('modal-refresh-btn');
+  if(btn) btn.addEventListener('click', renderModal);
 }
 
 function updateConnBadge(){
@@ -784,7 +798,8 @@ function productToRow(p){
 }
 
 /* ============================= PERSISTENCE ============================= */
-async function saveProduct(id, patch){
+async function saveProduct(id, patch, opts){
+  opts = opts || {};
   const current = state.products.find(p=>p.id===id) || {id, criadoEm: nowIso(), canais:{}};
   const merged = withStageTracking(current, Object.assign({}, patch, {atualizadoEm: nowIso()}));
   if(state.useDb){
@@ -792,13 +807,13 @@ async function saveProduct(id, patch){
       const {error} = await sb.from('products').upsert(productToRow(merged));
       if(error) throw error;
     }catch(e){
-      toast('Erro ao salvar: '+((e&&e.message)||e));
+      if(!opts.silent) toast('Erro ao salvar: '+((e&&e.message)||e));
       return null; // não finge sucesso local se a gravação no banco falhou
     }
   }
   const idx = state.products.findIndex(p=>p.id===id);
   if(idx>=0) state.products[idx]=merged; else state.products.push(merged);
-  renderAll();
+  if(!opts.silent) renderAll();
   return merged;
 }
 
@@ -827,19 +842,33 @@ async function createProduct(data, opts){
   return opts.silent ? {id, error:null} : id;
 }
 
-async function deleteProduct(id){
+async function deleteProduct(id, opts){
+  opts = opts || {};
   if(state.useDb){
     try{
       const {error} = await sb.from('products').delete().eq('id', id);
       if(error) throw error;
     }catch(e){
-      toast('Erro ao remover: '+((e&&e.message)||e));
+      if(!opts.silent) toast('Erro ao remover: '+((e&&e.message)||e));
       return false; // não finge sucesso local se a exclusão no banco falhou
     }
   }
   state.products = state.products.filter(p=>p.id!==id);
-  renderAll();
+  if(!opts.silent) renderAll();
   return true;
+}
+// Aplica uma ação (save/delete) numa lista de ids em paralelo, em lotes pequenos, sem redesenhar
+// a tela a cada item — importante quando a seleção tem centenas de produtos.
+async function runBulk(ids, worker){
+  const CONCURRENCY = 20;
+  let ok = 0, falhas = 0;
+  for(let i=0; i<ids.length; i+=CONCURRENCY){
+    const chunk = ids.slice(i, i+CONCURRENCY);
+    const results = await Promise.all(chunk.map(id=>worker(id)));
+    results.forEach(r=>{ if(r) ok++; else falhas++; });
+  }
+  renderAll();
+  return {ok, falhas};
 }
 
 async function saveCanais(list){
@@ -977,6 +1006,10 @@ async function initSupabase(){
             if(prevStage===newStage && newStage==='fotos' && prevFotos!==undefined && prevFotos!==newFotos){
               notifyFotosStatusChange(p, prevFotos, newFotos);
             }
+          }
+          if(state.modalProductId===p.id){
+            const old = state.products.find(x=>x.id===p.id);
+            if(old && old.atualizadoEm!==p.atualizadoEm) state.modalStale = true;
           }
           stageCache.set(p.id, getStage(p));
           fotosStatusCache.set(p.id, getFotosStatus(p));
@@ -1246,6 +1279,9 @@ function renderProdutos(){
     list = list.filter(p=> (p.modelo||'').toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q) || (p.ean||'').toLowerCase().includes(q));
   }
   list.sort((a,b)=>(b.atualizadoEm||'').localeCompare(a.atualizadoEm||''));
+  const matched = list; // conjunto completo do filtro — usado pra exportar CSV e pra contagem
+  const PROD_LIMIT = 300;
+  list = matched.slice(0, PROD_LIMIT); // só isso é desenhado/selecionável na tela, por performance
 
   // a seleção não sobrevive a produtos que saíram da lista filtrada
   const visibleIds = new Set(list.map(p=>p.id));
@@ -1302,7 +1338,7 @@ function renderProdutos(){
         <td><button class="btn small secondary" data-open="${esc(p.id)}">Abrir</button></td>
       </tr>`;
     }).join('');
-    el.innerHTML = toolbar + bulkBar + `<div class="table-wrap"><table>
+    el.innerHTML = toolbar + bulkBar + (matched.length>PROD_LIMIT ? `<p style="color:var(--muted);font-size:11.5px;margin:0 0 8px 0;">Mostrando os ${PROD_LIMIT} mais recentes de ${matched.length} encontrados — refine a busca ou os filtros para ver os demais. A exportação em CSV traz todos os ${matched.length}.</p>` : '') + `<div class="table-wrap"><table>
       <thead><tr><th><input type="checkbox" id="prod-select-all" ${allSelected?'checked':''}></th><th>Etapa</th><th>Produto</th><th>Linha / fluxo</th><th>SKU</th><th>EAN</th><th>Fotos</th><th>Liberado</th><th>Prazo</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
@@ -1314,7 +1350,7 @@ function renderProdutos(){
   document.getElementById('prod-novo').addEventListener('click', ()=>{ createProduct({}).then(id=>openProductModal(id)); });
   const dupBtn = document.getElementById('prod-dup-toggle');
   if(dupBtn) dupBtn.addEventListener('click', ()=>{ state.filterDuplicadosProdutos=!state.filterDuplicadosProdutos; renderProdutos(); });
-  document.getElementById('prod-export').addEventListener('click', ()=>exportProdutosCSV(list));
+  document.getElementById('prod-export').addEventListener('click', ()=>exportProdutosCSV(matched));
   el.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click', ()=>openProductModal(b.dataset.open)));
   el.querySelectorAll('tbody tr').forEach(tr=>tr.addEventListener('click', (e)=>{ if(e.target.closest('button') || e.target.closest('input')) return; openProductModal(tr.dataset.id); }));
 
@@ -1333,26 +1369,29 @@ function renderProdutos(){
   const bulkIds = ()=>Array.from(state.selectedProdutos);
   const bulkCad = document.getElementById('bulk-cadastro');
   if(bulkCad) bulkCad.addEventListener('click', async ()=>{
-    for(const id of bulkIds()) await saveProduct(id, {cadastroDone:true});
-    toast('Cadastro marcado como concluído para os selecionados.');
+    const ids = bulkIds();
+    const {ok, falhas} = await runBulk(ids, id=>saveProduct(id, {cadastroDone:true}, {silent:true}));
+    toast(`Cadastro concluído em ${ok} produto(s)${falhas?`, ${falhas} falharam`:''}.`);
   });
   const bulkEt2 = document.getElementById('bulk-etapa2');
   if(bulkEt2) bulkEt2.addEventListener('click', async ()=>{
-    for(const id of bulkIds()) await saveProduct(id, {etapa2Done:true});
-    toast('Etapa 2 marcada como concluída para os selecionados.');
+    const ids = bulkIds();
+    const {ok, falhas} = await runBulk(ids, id=>saveProduct(id, {etapa2Done:true}, {silent:true}));
+    toast(`Etapa 2 concluída em ${ok} produto(s)${falhas?`, ${falhas} falharam`:''}.`);
   });
   const bulkFotos = document.getElementById('bulk-fotos');
   if(bulkFotos) bulkFotos.addEventListener('click', async ()=>{
-    for(const id of bulkIds()) await saveProduct(id, {fotosStatus:'finalizado'});
-    toast('Fotos marcadas como finalizadas — disponíveis para o comercial.');
+    const ids = bulkIds();
+    const {ok, falhas} = await runBulk(ids, id=>saveProduct(id, {fotosStatus:'finalizado'}, {silent:true}));
+    toast(`Fotos finalizadas em ${ok} produto(s)${falhas?`, ${falhas} falharam`:''} — disponíveis para o comercial.`);
   });
   const bulkDel = document.getElementById('bulk-excluir');
   if(bulkDel) bulkDel.addEventListener('click', async ()=>{
     const ids = bulkIds();
     if(!confirm(`Excluir ${ids.length} produto(s) selecionado(s)? Essa ação não pode ser desfeita.`)) return;
-    for(const id of ids) await deleteProduct(id);
+    const {ok, falhas} = await runBulk(ids, id=>deleteProduct(id, {silent:true}));
     state.selectedProdutos.clear();
-    toast('Produtos excluídos.');
+    toast(`${ok} produto(s) excluído(s)${falhas?`, ${falhas} falharam`:''}.`);
     renderProdutos();
   });
   const bulkClear = document.getElementById('bulk-limpar');
@@ -1795,6 +1834,7 @@ function renderModal(){
   const root = document.getElementById('modal-root');
   const p = state.products.find(x=>x.id===state.modalProductId);
   if(!p){ root.innerHTML=''; return; }
+  state.modalStale = false; // acabamos de desenhar com os dados mais recentes
 
   const origem = getOrigem(p);
   const curStageKey = getStage(p);
@@ -1815,6 +1855,7 @@ function renderModal(){
         <button class="close" id="modal-close">×</button>
       </div>
       <div class="modal-body">
+        <div id="modal-stale-banner"></div>
         <div class="stage-track">${track}</div>
 
         <div class="row">
